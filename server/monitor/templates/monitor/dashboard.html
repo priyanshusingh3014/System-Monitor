@@ -232,22 +232,6 @@
                         <p class="empty-hint">Run <code>agent_client.exe</code> on any machine to register it as an active agent.</p>
                     </div>
 
-                    <!-- Search & Filter Controls -->
-                    <div class="devices-filter-bar" style="display:flex; gap:12px; margin-bottom:16px; align-items:center;">
-                        <div class="search-box" style="position:relative; flex:1;">
-                            <input type="text" id="device-search-input" placeholder="Search devices by machine name, user (e.g. Niraj Singh), IP..." style="width:100%; padding:8px 12px 8px 36px; border-radius:6px; border:1px solid var(--border); background:var(--bg-white); color:var(--text-primary); font-size:0.85rem;">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                            </svg>
-                        </div>
-                        <select id="device-status-filter" style="padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-white); color:var(--text-primary); font-size:0.85rem; font-weight:500;">
-                            <option value="all">All Devices</option>
-                            <option value="online">Online Only</option>
-                            <option value="idle">Idle / Offline</option>
-                        </select>
-                    </div>
-
                     <div class="table-wrapper" id="devices-table-wrapper">
                         <table class="activity-table" id="devices-table">
                             <thead>
@@ -404,6 +388,6 @@
         </div>
     </div>
 
-    <script src="{% static 'monitor/dashboard.js' %}?v=10005"></script>
+    <script src="{% static 'monitor/dashboard.js' %}?v=10006"></script>
 </body>
 </html>

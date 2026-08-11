@@ -331,29 +331,7 @@
         devicesEmptyState.style.display = 'none';
         devicesTableWrapper.style.display = 'block';
 
-        const searchInput = document.getElementById('device-search-input');
-        const statusFilter = document.getElementById('device-status-filter');
-
-        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
-        const selectedStatus = statusFilter ? statusFilter.value : 'all';
-
-        const filtered = agents.filter(agent => {
-            const matchesQuery = !query ||
-                (agent.hostname && agent.hostname.toLowerCase().includes(query)) ||
-                (agent.username && agent.username.toLowerCase().includes(query)) ||
-                (agent.local_ip && agent.local_ip.toLowerCase().includes(query)) ||
-                (agent.public_ip && agent.public_ip.toLowerCase().includes(query)) ||
-                (agent.mac_address && agent.mac_address.toLowerCase().includes(query));
-
-            const isOnline = agent.is_online;
-            const matchesStatus = (selectedStatus === 'all') ||
-                (selectedStatus === 'online' && isOnline) ||
-                (selectedStatus === 'idle' && !isOnline);
-
-            return matchesQuery && matchesStatus;
-        });
-
-        devicesTbody.innerHTML = filtered.map(renderDeviceRow).join('');
+        devicesTbody.innerHTML = agents.map(renderDeviceRow).join('');
     }
 
     // ============ POLLING ============
@@ -425,20 +403,6 @@
                 });
             });
         }
-    }
-
-    // Filter bar event listeners
-    const searchInputEl = document.getElementById('device-search-input');
-    const statusFilterEl = document.getElementById('device-status-filter');
-    if (searchInputEl) {
-        searchInputEl.addEventListener('input', function () {
-            if (latestData) updateDevicesPage(latestData);
-        });
-    }
-    if (statusFilterEl) {
-        statusFilterEl.addEventListener('change', function () {
-            if (latestData) updateDevicesPage(latestData);
-        });
     }
 
     // Initial fetch
