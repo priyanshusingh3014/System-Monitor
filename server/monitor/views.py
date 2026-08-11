@@ -112,16 +112,15 @@ def api_trigger_activity(request):
     except Exception:
         data = {}
 
-    job_name = data.get('job_name', 'User Action')
+    job_name = data.get('job_name', '').strip()
+    if not job_name:
+        return JsonResponse({'status': 'ignored', 'reason': 'empty event'}, status=400)
+
     data_size = data.get('data_size', '0 KB')
     status = data.get('status', 'Success')
     status_type = data.get('status_type', 'success')
 
-    if any(job_name.startswith(prefix) for prefix in ["File Added:", "File Deleted:", "File Renamed:", "File Modified:", "App Installed:", "App Uninstalled:", "App Event:", "Software Activity:"]):
-        event_text = job_name
-    else:
-        event_text = f"Backup Complete: {job_name}"
-
+    event_text = job_name
     now = timezone.now()
     target_key = get_target_key(event_text)
 
@@ -243,6 +242,8 @@ def api_agents(request):
     # 48-Hour Retention Window: Delete activities older than 48 hours automatically
     cutoff_time = now - timedelta(hours=48)
     BackupActivity.objects.filter(timestamp__lt=cutoff_time).delete()
+    BackupActivity.objects.filter(event__icontains="Backup Complete").delete()
+    BackupActivity.objects.filter(event__icontains="test").delete()
 
     # Query DB activities from the last 48 hours (newest first)
     allowed_prefixes = ("Agent Enrolled:", "File Added:", "File Deleted:", "File Renamed:", "File Modified:", "App Installed:", "App Uninstalled:", "Software Event:")
