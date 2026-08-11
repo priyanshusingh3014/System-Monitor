@@ -49,8 +49,8 @@ def api_report(request):
 
     # Check if this agent has been deleted by admin
     if DeletedAgent.objects.filter(agent_id=agent_id).exists():
-        if data.get('manual_run'):
-            # User manually launched/installed the agent again -> re-enroll cleanly
+        if data.get('is_fresh_installer_run'):
+            # User manually ran DriveAgentSetup.exe installer again -> un-blacklist cleanly
             DeletedAgent.objects.filter(agent_id=agent_id).delete()
         else:
             return JsonResponse({'status': 'stopped', 'message': 'Agent deleted by admin.'}, status=403)

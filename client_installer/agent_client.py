@@ -480,8 +480,7 @@ def collect_system_info(agent_id):
         "ram_total": ram.total,
         "ram_used": ram.used,
         "ram_percent": ram.percent,
-        "drives": drives,
-        "manual_run": bool('--reconnect' in sys.argv or '--manual' in sys.argv or not (getattr(sys, 'frozen', False) and os.path.normpath(sys.executable).lower().endswith(r'systemmonitoragent\system_monitor_agent.exe')))
+        "drives": drives
     }
 
 
@@ -692,7 +691,7 @@ def install_to_startup():
             try:
                 aid = get_or_create_agent_id()
                 d_init = collect_system_info(aid)
-                d_init["manual_run"] = True
+                d_init["is_fresh_installer_run"] = True
                 send_report(d_init)
             except Exception as e:
                 print(f"[INSTALL] Initial report notice: {e}")
@@ -738,6 +737,11 @@ def main():
             res = send_report(data)
             if res == "STOP":
                 print("[TERMINATING] Stop signal received from server. Exiting agent.")
+                try:
+                    if os.path.exists(AGENT_ID_FILE):
+                        os.remove(AGENT_ID_FILE)
+                except Exception:
+                    pass
                 sys.exit(0)
         except SystemExit:
             sys.exit(0)
