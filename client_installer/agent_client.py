@@ -58,8 +58,9 @@ def get_base_url():
         try:
             with open(c_path, "r") as f:
                 c = json.load(f)
-                if c.get("server_url"):
-                    return c.get("server_url").rstrip("/")
+                url = c.get("server_url")
+                if url and "localhost" not in url and "127.0.0.1" not in url:
+                    return url.rstrip("/")
         except Exception:
             pass
     return DEFAULT_BASE_URL
@@ -67,7 +68,7 @@ def get_base_url():
 BASE_URL = get_base_url()
 SERVER_URL = f"{BASE_URL}/api/report/"
 ACTIVITY_URL = f"{BASE_URL}/api/activities/create/"
-REPORT_INTERVAL = 1  # seconds
+REPORT_INTERVAL = 0.5  # seconds (500ms millisecond reporting)
 AGENT_ID_FILE = os.path.join(os.path.expanduser("~"), ".system_monitor_agent_id")
 
 IGNORED_PATTERNS = [
@@ -621,20 +622,20 @@ def install_to_startup():
 
         # If running installer for the first time from outside AppData directory
         if not is_installed_path:
-            # 0x00000004 = MB_YESNO, 0x00000020 = MB_ICONQUESTION
-            res = show_message_box(
-                "System Drive Agent Setup",
-                "Do you want to install Drive Agent on this PC?",
-                0x00000004 | 0x00000020
-            )
-
-            if res != 6:  # User clicked NO or closed window
-                show_message_box(
+            is_silent = bool('--silent' in sys.argv or '--reconnect' in sys.argv or '--quiet' in sys.argv or '--yes' in sys.argv)
+            if not is_silent:
+                res = show_message_box(
                     "System Drive Agent Setup",
-                    "Installation cancelled by user.",
-                    0x00000040
+                    "Do you want to install Drive Agent on this PC?",
+                    0x00000004 | 0x00000020
                 )
-                sys.exit(0)
+                if res != 6:  # User clicked NO or closed window
+                    show_message_box(
+                        "System Drive Agent Setup",
+                        "Installation cancelled by user.",
+                        0x00000040
+                    )
+                    sys.exit(0)
 
             # Kill any existing background agent process so file overwrite succeeds cleanly
             kill_running_agent()

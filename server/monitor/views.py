@@ -172,7 +172,7 @@ def api_agents(request):
     AgentReport.objects.filter(last_seen__lt=stale_cutoff).delete()
 
     agents = AgentReport.objects.all()
-    online_threshold = now - timedelta(seconds=10)
+    online_threshold = now - timedelta(seconds=5)
 
     agents_data = []
     for agent in agents:

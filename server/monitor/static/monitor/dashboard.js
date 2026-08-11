@@ -8,7 +8,7 @@
     'use strict';
 
     // ---- Config ----
-    const POLL_INTERVAL = 1000;
+    const POLL_INTERVAL = 500;
     const API_URL = '/api/agents/';
 
     // ---- DOM Refs: Dashboard ----
