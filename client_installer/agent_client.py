@@ -34,21 +34,21 @@ except ImportError:
 
 
 def get_config_file_path():
-    """Locate config.json relative to running executable, PyInstaller bundle, or script dir."""
+    """Locate config.json relative to PyInstaller bundle, running executable, or script dir."""
     if getattr(sys, 'frozen', False):
-        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-        c_path = os.path.join(exe_dir, "config.json")
-        if os.path.exists(c_path):
-            return c_path
         if hasattr(sys, '_MEIPASS'):
             bundle_c = os.path.join(sys._MEIPASS, "config.json")
             if os.path.exists(bundle_c):
                 return bundle_c
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        c_path = os.path.join(exe_dir, "config.json")
+        if os.path.exists(c_path):
+            return c_path
     script_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(script_dir, "config.json")
 
 
-DEFAULT_BASE_URL = "http://localhost:8000"
+DEFAULT_BASE_URL = "https://system-monitor-s3q7.onrender.com"
 
 def get_base_url():
     if os.environ.get("SERVER_BASE_URL"):
