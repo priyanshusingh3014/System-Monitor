@@ -73,7 +73,7 @@ AGENT_ID_FILE = os.path.join(os.path.expanduser("~"), ".system_monitor_agent_id"
 
 IGNORED_PATTERNS = [
     '.tmp', '.log', '.git', '__pycache__', '.venv', 'venv',
-    'node_modules', '.gemini', '.antigravity', 'AppData',
+    'node_modules', '.gemini', '.antigravity', 'AppData', 'Application Data',
     '$Recycle.Bin', '$RECYCLE.BIN', 'System Volume Information',
     'Windows', 'Program Files', 'Program Files (x86)', 'ProgramData',
     'pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'DumpStack',
@@ -82,7 +82,8 @@ IGNORED_PATTERNS = [
     'f_00', 'temp-', 'lock', '.ldb', '.manifest', 'NTUSER', 'usrclass',
     'file_with_content', 'retention_test', 'live_pc_action', 'd_drive_test', 'scratchpad',
     'desktop.ini', 'thumbs.db', 'iconcache', '.ini', '.db', '.dat', '.etl', '.evtx',
-    'microsoft', 'explorer', 'thumbcache', 'localsettings', 'prefetch', 'appicon'
+    'microsoft', 'explorer', 'thumbcache', 'localsettings', 'prefetch', 'appicon',
+    'crashdumps', 'logs', 'telemetry', 'diagnostics', 'service-worker', 'local storage'
 ]
 
 
@@ -93,11 +94,16 @@ def is_ignored(path):
     if fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('f_') or fn_lower.startswith('todelete_'):
         return True
 
-    # Ignore system configuration, icon, and OS cache files
+    # Ignore system configuration, icon, database, system logs, and background OS state files
     if fn_lower in ['desktop.ini', 'thumbs.db', 'iconcache.db', 'ntuser.dat', 'usrclass.dat']:
         return True
 
-    if any(fn_lower.endswith(ext) for ext in ['.ini', '.db', '.dat', '.tmp', '.log', '.etl', '.evtx', '.cdb', '.dat_old']):
+    ignored_extensions = [
+        '.ini', '.db', '.dat', '.tmp', '.log', '.etl', '.evtx', '.cdb', '.dat_old',
+        '.json', '.xml', '.sys', '.dll', '.exe', '.bak', '.chk', '.swp', '.lock',
+        '.manifest', '.001', '.002', '.part', '.crdownload', '.tmp_', '.ldb', '.old', '.cache'
+    ]
+    if any(fn_lower.endswith(ext) for ext in ignored_extensions):
         return True
 
     path_lower = path.lower()
