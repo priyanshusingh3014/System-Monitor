@@ -245,7 +245,7 @@ def api_agents(request):
     BackupActivity.objects.filter(timestamp__lt=cutoff_time).delete()
 
     # Query DB activities from the last 48 hours (newest first)
-    allowed_prefixes = ("File Added:", "File Deleted:", "File Renamed:", "File Modified:", "App Installed:", "App Uninstalled:", "Software Event:")
+    allowed_prefixes = ("Agent Enrolled:", "File Added:", "File Deleted:", "File Renamed:", "File Modified:", "App Installed:", "App Uninstalled:", "Software Event:")
     all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).order_by('-id')
     
     db_activities = []
