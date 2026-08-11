@@ -80,13 +80,24 @@ IGNORED_PATTERNS = [
     '.crdownload', '.part', 'db.sqlite3', 'sqlite3', 'CacheStorage',
     'Code Cache', 'GPUCache', 'IndexedDB', 'perftrack', 'todelete_',
     'f_00', 'temp-', 'lock', '.ldb', '.manifest', 'NTUSER', 'usrclass',
-    'file_with_content', 'retention_test', 'live_pc_action', 'd_drive_test', 'scratchpad'
+    'file_with_content', 'retention_test', 'live_pc_action', 'd_drive_test', 'scratchpad',
+    'desktop.ini', 'thumbs.db', 'iconcache', '.ini', '.db', '.dat', '.etl', '.evtx',
+    'microsoft', 'explorer', 'thumbcache', 'localsettings', 'prefetch', 'appicon'
 ]
 
 
 def is_ignored(path):
     filename = os.path.basename(path)
-    if filename.startswith('.') or filename.startswith('~$') or filename.startswith('f_') or filename.startswith('todelete_'):
+    fn_lower = filename.lower()
+
+    if fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('f_') or fn_lower.startswith('todelete_'):
+        return True
+
+    # Ignore system configuration, icon, and OS cache files
+    if fn_lower in ['desktop.ini', 'thumbs.db', 'iconcache.db', 'ntuser.dat', 'usrclass.dat']:
+        return True
+
+    if any(fn_lower.endswith(ext) for ext in ['.ini', '.db', '.dat', '.tmp', '.log', '.etl', '.evtx', '.cdb', '.dat_old']):
         return True
 
     path_lower = path.lower()
