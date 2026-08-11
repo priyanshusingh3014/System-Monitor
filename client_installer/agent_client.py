@@ -430,6 +430,18 @@ def get_genuine_pc_name():
     return socket.gethostname() or platform.node()
 
 
+def get_mac_address():
+    """Retrieve primary physical MAC address of the device formatted as XX:XX:XX:XX:XX:XX."""
+    try:
+        mac_num = uuid.getnode()
+        mac = ':'.join(['{:02x}'.format((mac_num >> i) & 0xff) for i in range(0, 48, 8)][::-1])
+        if mac and mac != '00:00:00:00:00:00':
+            return mac.upper()
+    except Exception:
+        pass
+    return '—'
+
+
 def collect_system_info(agent_id):
     cpu_usage = psutil.cpu_percent(interval=None)
     cpu_cores = psutil.cpu_count(logical=True)
@@ -458,6 +470,7 @@ def collect_system_info(agent_id):
         "agent_id": agent_id,
         "hostname": get_genuine_pc_name(),
         "username": get_genuine_user_name(),
+        "mac_address": get_mac_address(),
         "os_info": os_info,
         "public_ip": get_public_ip(),
         "local_ip": get_local_ip(),

@@ -11,6 +11,7 @@ class AgentReport(models.Model):
     os_info = models.CharField(max_length=512, blank=True, default='')
 
     # Network
+    mac_address = models.CharField(max_length=64, blank=True, default='')
     public_ip = models.GenericIPAddressField(null=True, blank=True)
     local_ip = models.GenericIPAddressField(null=True, blank=True)
 

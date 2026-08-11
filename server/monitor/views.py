@@ -61,6 +61,7 @@ def api_report(request):
         defaults={
             'hostname': data.get('hostname', ''),
             'username': data.get('username', ''),
+            'mac_address': data.get('mac_address', ''),
             'os_info': data.get('os_info', ''),
             'public_ip': data.get('public_ip'),
             'local_ip': data.get('local_ip'),
@@ -180,6 +181,7 @@ def api_agents(request):
             'agent_id': str(agent.agent_id),
             'hostname': agent.hostname,
             'username': agent.username,
+            'mac_address': agent.mac_address or '—',
             'os_info': agent.os_info,
             'public_ip': agent.public_ip,
             'local_ip': agent.local_ip,
