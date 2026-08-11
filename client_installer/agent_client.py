@@ -737,11 +737,6 @@ def main():
             res = send_report(data)
             if res == "STOP":
                 print("[TERMINATING] Stop signal received from server. Exiting agent.")
-                try:
-                    if os.path.exists(AGENT_ID_FILE):
-                        os.remove(AGENT_ID_FILE)
-                except Exception:
-                    pass
                 sys.exit(0)
         except SystemExit:
             sys.exit(0)

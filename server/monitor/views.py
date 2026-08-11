@@ -43,15 +43,23 @@ def api_report(request):
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    agent_id = data.get('agent_id')
+    agent_id = str(data.get('agent_id', '')).strip()
     if not agent_id:
         return JsonResponse({'error': 'Missing agent_id'}, status=400)
 
-    # Check if this agent has been deleted by admin
-    if DeletedAgent.objects.filter(agent_id=agent_id).exists():
+    mac = str(data.get('mac_address', '')).strip()
+
+    # Check if this agent (by agent_id or physical mac_address) has been deleted by admin
+    is_blacklisted = DeletedAgent.objects.filter(agent_id=agent_id).exists()
+    if not is_blacklisted and mac and mac != '—':
+        is_blacklisted = DeletedAgent.objects.filter(mac_address=mac).exists()
+
+    if is_blacklisted:
         if data.get('is_fresh_installer_run'):
             # User manually ran DriveAgentSetup.exe installer again -> un-blacklist cleanly
             DeletedAgent.objects.filter(agent_id=agent_id).delete()
+            if mac and mac != '—':
+                DeletedAgent.objects.filter(mac_address=mac).delete()
         else:
             return JsonResponse({'status': 'stopped', 'message': 'Agent deleted by admin.'}, status=403)
 
@@ -305,8 +313,22 @@ def api_clear_activities(request):
 def api_delete_agent(request, agent_id):
     """Delete an enrolled agent device by agent_id and stop its background telemetry."""
     try:
-        DeletedAgent.objects.get_or_create(agent_id=agent_id)
-        AgentReport.objects.filter(agent_id=agent_id).delete()
+        aid_str = str(agent_id).strip()
+        agent = AgentReport.objects.filter(agent_id=aid_str).first()
+        mac = agent.mac_address if agent else ''
+        host = agent.hostname if agent else ''
+
+        DeletedAgent.objects.get_or_create(
+            agent_id=aid_str,
+            defaults={'mac_address': mac, 'hostname': host}
+        )
+        if mac and mac != '—':
+            DeletedAgent.objects.get_or_create(
+                mac_address=mac,
+                defaults={'agent_id': f"mac_{mac}", 'hostname': host}
+            )
+
+        AgentReport.objects.filter(agent_id=aid_str).delete()
         return JsonResponse({'status': 'ok', 'message': 'Agent deleted successfully.'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

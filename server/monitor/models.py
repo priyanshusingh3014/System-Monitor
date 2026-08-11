@@ -54,9 +54,11 @@ class BackupActivity(models.Model):
 
 
 class DeletedAgent(models.Model):
-    """Tracks agent IDs deleted by admin so running background processes stop sending telemetry."""
-    agent_id = models.UUIDField(unique=True, primary_key=True)
+    """Tracks agent IDs and MAC addresses deleted by admin so running background processes stop sending telemetry."""
+    agent_id = models.CharField(max_length=64, unique=True, primary_key=True)
+    mac_address = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    hostname = models.CharField(max_length=255, blank=True, default='')
     deleted_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"DeletedAgent ({self.agent_id})"
+        return f"DeletedAgent ({self.hostname} - {self.mac_address} - {self.agent_id})"
