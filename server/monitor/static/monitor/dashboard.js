@@ -290,8 +290,8 @@
                     </div>
                 </td>
                 <td>${agent.local_ip || agent.public_ip || '—'}</td>
+                <td><span style="font-family: monospace; font-weight: 400; color: var(--text-secondary); font-size: 0.85rem; letter-spacing: 0.03em;">${agent.mac_address || '—'}</span></td>
                 <td>${agent.username || '—'}</td>
-                <td><span style="font-family: monospace; font-weight: 600; color: var(--accent); font-size: 0.85rem; letter-spacing: 0.03em;">${agent.mac_address || '—'}</span></td>
                 <td><span class="vault-space">${formatBytesShort(vaultSpace)}</span></td>
                 <td>
                     <span class="status-badge ${statusClass}">
