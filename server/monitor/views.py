@@ -195,30 +195,40 @@ def api_agents(request):
             'is_online': agent.last_seen >= online_threshold if agent.last_seen else False,
         })
 
-    # Get total combined storage across all disk partitions of the host PC / server
+    # Calculate genuine vault storage across all drives of enrolled endpoint agents
     total_bytes = 0
     used_bytes = 0
     free_bytes = 0
 
-    try:
-        import psutil
-        for part in psutil.disk_partitions(all=False):
-            if part.mountpoint and part.fstype and ('cdrom' not in part.opts):
-                try:
-                    usage = psutil.disk_usage(part.mountpoint)
-                    total_bytes += usage.total
-                    used_bytes += usage.used
-                    free_bytes += usage.free
-                except (PermissionError, OSError):
-                    continue
-    except Exception:
+    for agent in agents:
+        if isinstance(agent.drives, list):
+            for d in agent.drives:
+                if isinstance(d, dict):
+                    total_bytes += int(d.get('total', 0) or 0)
+                    used_bytes += int(d.get('used', 0) or 0)
+                    free_bytes += int(d.get('free', 0) or 0)
+
+    # Fallback to server disk usage if no endpoint agents are enrolled
+    if total_bytes == 0:
         try:
-            disk = shutil.disk_usage('/')
-            total_bytes = disk.total
-            used_bytes = disk.used
-            free_bytes = disk.free
+            import psutil
+            for part in psutil.disk_partitions(all=False):
+                if part.mountpoint and part.fstype and ('cdrom' not in part.opts):
+                    try:
+                        usage = psutil.disk_usage(part.mountpoint)
+                        total_bytes += usage.total
+                        used_bytes += usage.used
+                        free_bytes += usage.free
+                    except (PermissionError, OSError):
+                        continue
         except Exception:
-            pass
+            try:
+                disk = shutil.disk_usage('/')
+                total_bytes = disk.total
+                used_bytes = disk.used
+                free_bytes = disk.free
+            except Exception:
+                pass
 
     server_storage = {
         'total': total_bytes,
