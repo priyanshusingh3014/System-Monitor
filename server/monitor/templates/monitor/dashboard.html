@@ -1,0 +1,393 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="description" content="System Monitor Dashboard — Real-time monitoring of connected agent machines">
+    <title>System Monitor — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'monitor/styles.css' %}?v=9999">
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+            <div class="sidebar-brand">
+                <div class="brand-icon">SM</div>
+                <div class="brand-text">
+                    <span class="brand-name">SYSTEM</span>
+                    <span class="brand-sub">MONITOR</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" id="nav-dashboard">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="14" y="14" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-devices">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    <span>Devices</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-storage">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                    <span>Storage</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-recovery">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="1,4 1,10 7,10"/>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                    </svg>
+                    <span>Recovery</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-security">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span>Security</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-logs">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14,2 14,8 20,8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10,9 9,9 8,9"/>
+                    </svg>
+                    <span>Logs</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-settings">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="system-status">
+                <span class="status-dot-live"></span>
+                <span>System Operational</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+        <!-- Top Bar -->
+        <header class="topbar" id="topbar">
+            <div class="topbar-center">
+                <div class="status-banner" id="status-banner">
+                    <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span>Monitor Agent Core v1.0.0 • Status: <strong>Healthy</strong></span>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-user">
+                    <div class="user-avatar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">Admin User</span>
+                        <span class="user-role">Super Admin</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="page-content" id="page-content">
+
+            <!-- ==================== DASHBOARD PAGE ==================== -->
+            <div class="page-view active" id="page-dashboard" style="display:block;">
+
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h2 class="page-title">System Telemetry &amp; Overview</h2>
+                    <p class="page-subtitle">Real-time status of connected agents, system metrics, and vault storage</p>
+                </div>
+
+                <!-- Stat Cards Row -->
+                <div class="stat-cards" id="stat-cards">
+                    <div class="stat-card" id="card-agents">
+                        <span class="stat-card-label">Active Agents</span>
+                        <span class="stat-card-value" id="active-agents-value">0 Online</span>
+                    </div>
+                    <div class="stat-card accent" id="card-storage">
+                        <span class="stat-card-label">Vault Storage Used</span>
+                        <span class="stat-card-value" id="total-storage-value">0 GB / 0 GB</span>
+                    </div>
+                </div>
+
+                <!-- Recent Backup Activities Table -->
+                <div class="activity-section" id="activity-section">
+                    <div class="section-header-row">
+                        <h3 class="section-title">Recent Backup Activities</h3>
+                        <button class="btn-clear-history" id="btn-clear-history" title="Clear Recent Backup Activities">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 6h18"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                            Clear History
+                        </button>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="empty-state" id="empty-state" style="display:none;">
+                        <div class="empty-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                                <path d="M8 21h8"/>
+                                <path d="M12 17v4"/>
+                            </svg>
+                        </div>
+                        <p class="empty-text">No activity recorded yet.</p>
+                        <p class="empty-hint">Run <code>agent_client.exe</code> on any machine to start monitoring.</p>
+                    </div>
+
+                    <!-- Activities Table -->
+                    <div class="table-wrapper" id="table-wrapper">
+                        <table class="activity-table" id="activities-table">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Time</th>
+                                    <th>Data Size</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activities-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ==================== DEVICES PAGE ==================== -->
+            <div class="page-view" id="page-devices" style="display:none;">
+
+                <div class="page-header">
+                    <h2 class="page-title">Registered Endpoint Devices</h2>
+                    <p class="page-subtitle">Manage client backup agents and target file paths</p>
+                </div>
+
+                <!-- Devices Stat Cards -->
+                <div class="stat-cards" id="devices-stat-cards">
+                    <div class="stat-card" id="card-total-endpoints">
+                        <span class="stat-card-label">Total Enrolled Endpoints</span>
+                        <span class="stat-card-value" id="total-endpoints-value">0 Devices</span>
+                    </div>
+                    <div class="stat-card accent" id="card-active-syncing">
+                        <span class="stat-card-label">Active / Syncing</span>
+                        <span class="stat-card-value" id="active-syncing-value">0 Devices</span>
+                    </div>
+                    <div class="stat-card dark" id="card-offline">
+                        <span class="stat-card-label">Offline</span>
+                        <span class="stat-card-value" id="offline-value">0 Devices</span>
+                    </div>
+                </div>
+
+                <!-- Devices Table -->
+                <div class="activity-section" id="devices-table-section">
+
+                    <!-- Empty State -->
+                    <div class="empty-state" id="devices-empty-state">
+                        <div class="empty-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                                <path d="M8 21h8"/>
+                                <path d="M12 17v4"/>
+                            </svg>
+                        </div>
+                        <p class="empty-text">No devices enrolled yet.</p>
+                        <p class="empty-hint">Run <code>agent_client.exe</code> on any machine to register it as an active agent.</p>
+                    </div>
+
+                    <div class="table-wrapper" id="devices-table-wrapper">
+                        <table class="activity-table" id="devices-table">
+                            <thead>
+                                <tr>
+                                    <th>Machine &amp; OS</th>
+                                    <th>Network Address</th>
+                                    <th>Assigned User</th>
+                                    <th>Target Backup Path</th>
+                                    <th>Vault Space</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devices-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ==================== BACKUP JOBS PAGE ==================== -->
+            <div class="page-view" id="page-backup-jobs" style="display:none;">
+
+                <div class="page-header">
+                    <h2 class="page-title">Automated Backup Jobs</h2>
+                    <p class="page-subtitle">Configure backup execution frequency and rules</p>
+                </div>
+
+                <!-- Backup Jobs Table -->
+                <div class="activity-section" id="backup-jobs-table-section">
+                    <div class="table-wrapper" id="backup-jobs-table-wrapper">
+                        <table class="activity-table" id="backup-jobs-table">
+                            <thead>
+                                <tr>
+                                    <th>Job Name &amp; ID</th>
+                                    <th>Target Path</th>
+                                    <th>Schedule</th>
+                                    <th>Last Run</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="backup-jobs-tbody">
+                                <tr>
+                                    <td>
+                                        <div class="device-cell">
+                                            <div class="device-icon">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                                    <path d="M12 11v6"></path>
+                                                    <path d="M9 14l3-3 3 3"></path>
+                                                </svg>
+                                            </div>
+                                            <div class="device-name-wrap">
+                                                <span class="device-name">User Documents Sync</span>
+                                                <span class="device-os">JOB-101</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="backup-path">C:\Users\*\Documents</span></td>
+                                    <td>
+                                        <div class="schedule-cell">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <polyline points="12 6 12 12 16 14"></polyline>
+                                            </svg>
+                                            <span>Every Day @ 18:00</span>
+                                        </div>
+                                    </td>
+                                    <td>Today, 18:00</td>
+                                    <td>
+                                        <span class="status-badge active-job">
+                                            <span class="status-badge-dot"></span>
+                                            Active
+                                        </span>
+                                    </td>
+                                    <td><button class="btn-sync btn-run-now">Run Now</button></td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="device-cell">
+                                            <div class="device-icon">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                                    <path d="M12 11v6"></path>
+                                                    <path d="M9 14l3-3 3 3"></path>
+                                                </svg>
+                                            </div>
+                                            <div class="device-name-wrap">
+                                                <span class="device-name">Database Snapshot</span>
+                                                <span class="device-os">JOB-102</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="backup-path">C:\Boldfit\Database\*.db</span></td>
+                                    <td>
+                                        <div class="schedule-cell">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <polyline points="12 6 12 16 14"></polyline>
+                                            </svg>
+                                            <span>Every 4 Hours</span>
+                                        </div>
+                                    </td>
+                                    <td>2 hours ago</td>
+                                    <td>
+                                        <span class="status-badge running-job">
+                                            <span class="status-badge-dot"></span>
+                                            Running
+                                        </span>
+                                    </td>
+                                    <td><button class="btn-sync btn-run-now">Run Now</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer" id="footer">
+            <div class="footer-left">
+                <span class="footer-dot"></span>
+                <span>&copy; 2026 System Monitor. All rights reserved.</span>
+            </div>
+            <div class="footer-right">
+                <span class="footer-badge">Encrypted TLS v1.3 • AES-256 Storage</span>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Clear Confirmation Modal -->
+    <div class="modal-backdrop" id="clear-modal-backdrop" style="display:none;">
+        <div class="confirm-modal">
+            <div class="confirm-modal-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+            </div>
+            <h3 class="confirm-modal-title">Clear Recent Backup Activities?</h3>
+            <p class="confirm-modal-desc">Do you want to clear recent backup activities? All recorded activity data will be permanently deleted.</p>
+            <div class="confirm-modal-actions">
+                <button class="btn-modal-cancel" id="btn-modal-cancel">Cancel</button>
+                <button class="btn-modal-confirm" id="btn-modal-confirm">Yes, Clear All</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'monitor/dashboard.js' %}?v=10001"></script>
+</body>
+</html>

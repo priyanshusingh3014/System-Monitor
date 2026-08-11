@@ -1,0 +1,300 @@
+import os
+import time
+import threading
+import string
+
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    HAS_WATCHDOG = True
+except ImportError:
+    HAS_WATCHDOG = False
+
+# Directories and patterns to ignore across all drives
+IGNORED_PATTERNS = [
+    '.tmp', '.log', '.git', '__pycache__', '.venv', 'venv', 
+    'node_modules', '.gemini', '.antigravity', 'AppData',
+    '$Recycle.Bin', '$RECYCLE.BIN', 'System Volume Information',
+    'Windows', 'Program Files', 'Program Files (x86)', 'ProgramData',
+    'pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'DumpStack',
+    '.crdownload', '.part', 'db.sqlite3', 'sqlite3', 'CacheStorage',
+    'Code Cache', 'GPUCache', 'IndexedDB', 'perftrack', 'todelete_',
+    'f_00', 'temp-', 'lock', '.ldb', '.manifest', 'NTUSER', 'usrclass',
+    'file_with_content', 'retention_test', 'live_pc_action', 'd_drive_test', 'scratchpad'
+]
+
+
+def is_ignored(path):
+    filename = os.path.basename(path)
+    if filename.startswith('.') or filename.startswith('~$') or filename.startswith('f_') or filename.startswith('todelete_'):
+        return True
+
+    path_lower = path.lower()
+    for pattern in IGNORED_PATTERNS:
+        if pattern.lower() in path_lower:
+            return True
+    return False
+
+
+def format_size(num_bytes):
+    if num_bytes is None or num_bytes < 0:
+        return '0 KB'
+    if num_bytes == 0:
+        return '0 KB'
+    if num_bytes < 1024:
+        return f"{num_bytes} B"
+    elif num_bytes < 1024 * 1024:
+        return f"{num_bytes / 1024:.1f} KB"
+    elif num_bytes < 1024 * 1024 * 1024:
+        return f"{num_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{num_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+def get_display_name(path):
+    """Return filename with drive letter for context e.g. myfile.txt (D:\)"""
+    drive, _ = os.path.splitdrive(path)
+    filename = os.path.basename(path)
+    if drive:
+        return f"{filename} ({drive})"
+    return filename
+
+
+class LocalFileSystemHandler(FileSystemEventHandler):
+    """Event handler that logs local drive & folder file additions, deletions, renames, and modifications with file sizes."""
+
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+        self.last_events = {}
+        self.file_sizes = {}
+
+    def _debounce(self, path, event_type):
+        key = f"{path}:{event_type}"
+        now = time.time()
+        if key in self.last_events and (now - self.last_events[key]) < 5.0:
+            return True
+        self.last_events[key] = now
+        return False
+
+    def _get_size_and_store(self, path):
+        time.sleep(0.15)
+        try:
+            size = os.path.getsize(path)
+            self.file_sizes[path] = size
+            return format_size(size)
+        except Exception:
+            last = self.file_sizes.get(path)
+            return format_size(last if last is not None else 0)
+
+    def on_created(self, event):
+        if event.is_directory or is_ignored(event.src_path):
+            return
+        if self._debounce(event.src_path, 'created'):
+            return
+
+        name = get_display_name(event.src_path)
+        size_str = self._get_size_and_store(event.src_path)
+
+        self.callback(
+            event=f"File Added: {name}",
+            data_size=size_str,
+            status="Success",
+            status_type="success"
+        )
+
+    def on_modified(self, event):
+        if event.is_directory or is_ignored(event.src_path):
+            return
+        try:
+            new_size = os.path.getsize(event.src_path)
+            old_size = self.file_sizes.get(event.src_path)
+            if old_size != new_size:
+                self.file_sizes[event.src_path] = new_size
+                if self._debounce(event.src_path, 'modified'):
+                    return
+                name = get_display_name(event.src_path)
+                self.callback(
+                    event=f"File Modified: {name}",
+                    data_size=format_size(new_size),
+                    status="Success",
+                    status_type="success"
+                )
+        except Exception:
+            pass
+
+    def on_deleted(self, event):
+        if event.is_directory or is_ignored(event.src_path):
+            return
+        filename = os.path.basename(event.src_path)
+        # Suppress transient Windows Explorer placeholder deletions during inline rename
+        if any(filename.startswith(p) for p in ["New Text Document", "New Microsoft Word", "New Rich Text", "New Bitmap", "New Folder"]):
+            return
+        if self._debounce(event.src_path, 'deleted'):
+            return
+
+        name = get_display_name(event.src_path)
+        last_size = self.file_sizes.pop(event.src_path, 0)
+        size_str = format_size(last_size)
+
+        self.callback(
+            event=f"File Deleted: {name}",
+            data_size=size_str,
+            status="Success",
+            status_type="success"
+        )
+
+    def on_moved(self, event):
+        if event.is_directory or is_ignored(event.src_path) or is_ignored(event.dest_path):
+            return
+        if self._debounce(event.dest_path, 'moved'):
+            return
+
+        src_name = get_display_name(event.src_path)
+        dest_name = get_display_name(event.dest_path)
+        old_size = self.file_sizes.pop(event.src_path, None)
+        size_str = self._get_size_and_store(event.dest_path)
+        if size_str == '0 KB' and old_size is not None:
+            size_str = format_size(old_size)
+
+        self.callback(
+            event=f"File Renamed: {src_name} ➔ {dest_name}",
+            data_size=size_str,
+            status="Success",
+            status_type="success"
+        )
+
+
+def detect_all_drives():
+    """Detect all fixed disk drive roots (C:\, D:\, etc.) and user folders."""
+    dirs = []
+
+    # 1. User folders
+    user_home = os.path.expanduser("~")
+    for folder in ["Desktop", "Documents", "Downloads", "Pictures", "Videos", "Music"]:
+        p = os.path.join(user_home, folder)
+        if os.path.exists(p):
+            dirs.append(p)
+
+    # 2. All mounted drive partitions (e.g. C:\, D:\)
+    try:
+        import psutil
+        for part in psutil.disk_partitions(all=False):
+            if part.mountpoint and os.path.exists(part.mountpoint):
+                dirs.append(part.mountpoint)
+    except Exception:
+        for letter in string.ascii_uppercase:
+            drive = f"{letter}:\\"
+            if os.path.exists(drive):
+                dirs.append(drive)
+
+    # Remove duplicates while preserving order
+    return list(dict.fromkeys(dirs))
+
+
+def start_software_monitor(log_callback):
+    """Monitor app installs and uninstalls in real time."""
+    if os.name != 'nt':
+        return
+
+    def run_software_loop():
+        try:
+            import winreg
+        except ImportError:
+            return
+
+        def get_installed_apps():
+            apps = set()
+            keys = [
+                (winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'),
+                (winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'),
+                (winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Uninstall')
+            ]
+            for hkey, path in keys:
+                try:
+                    key = winreg.OpenKey(hkey, path)
+                    for i in range(winreg.QueryInfoKey(key)[0]):
+                        try:
+                            sub = winreg.EnumKey(key, i)
+                            sub_key = winreg.OpenKey(key, sub)
+                            val, _ = winreg.QueryValueEx(sub_key, 'DisplayName')
+                            if val and str(val).strip():
+                                apps.add(str(val).strip())
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            return apps
+
+        known_apps = get_installed_apps()
+        time.sleep(2)
+        while True:
+            try:
+                time.sleep(8)
+                current_apps = get_installed_apps()
+                if not known_apps:
+                    known_apps = current_apps
+                    continue
+
+                new_apps = current_apps - known_apps
+                removed_apps = known_apps - current_apps
+
+                for app in new_apps:
+                    print(f"[SOFTWARE MONITOR] Detected App Installed: {app}")
+                    log_callback(
+                        event=f"App Installed: {app}",
+                        data_size="0 KB",
+                        status="Success",
+                        status_type="success"
+                    )
+
+                for app in removed_apps:
+                    print(f"[SOFTWARE MONITOR] Detected App Uninstalled: {app}")
+                    log_callback(
+                        event=f"App Uninstalled: {app}",
+                        data_size="0 KB",
+                        status="Success",
+                        status_type="success"
+                    )
+
+                known_apps = current_apps
+            except Exception as e:
+                print(f"[SOFTWARE MONITOR] Error: {e}")
+                time.sleep(10)
+
+    t = threading.Thread(target=run_software_loop, daemon=True)
+    t.start()
+
+
+def start_fs_monitor(log_callback):
+    """Start watching all PC drives and user folders in background thread."""
+    start_software_monitor(log_callback)
+
+    if not HAS_WATCHDOG:
+        print("[FS MONITOR] watchdog module not installed.")
+        return None
+
+    watch_dirs = detect_all_drives()
+    event_handler = LocalFileSystemHandler(log_callback)
+    observer = Observer()
+
+    for d in watch_dirs:
+        try:
+            observer.schedule(event_handler, d, recursive=True)
+            print(f"[FS MONITOR] Watching drive/directory: {d}")
+        except Exception as e:
+            print(f"[FS MONITOR] Failed to watch {d}: {e}")
+
+    def run():
+        observer.start()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.stop()
+        observer.join()
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    return observer
