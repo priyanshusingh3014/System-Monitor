@@ -266,8 +266,8 @@
     // ============ DEVICES PAGE ============
 
     function renderDeviceRow(agent) {
-        const statusClass = agent.is_online ? 'online' : 'idle';
-        const statusText = agent.is_online ? 'Online' : 'Idle';
+        const statusClass = agent.is_online ? 'online' : 'offline';
+        const statusText = agent.is_online ? 'Online' : 'Offline';
         const vaultSpace = getAgentVaultSpace(agent);
         const backupPath = getBackupPath(agent);
         const osShort = getOsShort(agent.os_info);
