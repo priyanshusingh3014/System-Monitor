@@ -291,7 +291,7 @@
                 </td>
                 <td>${agent.local_ip || agent.public_ip || '—'}</td>
                 <td>${agent.username || '—'}</td>
-                <td><span class="backup-path">${backupPath}</span></td>
+                <td><span style="color: var(--accent); font-weight: 600; font-size: 0.85rem;">${agent.cpu_usage != null ? agent.cpu_usage.toFixed(1) : 0}% CPU | ${agent.ram_percent != null ? agent.ram_percent.toFixed(1) : 0}% RAM</span></td>
                 <td><span class="vault-space">${formatBytesShort(vaultSpace)}</span></td>
                 <td>
                     <span class="status-badge ${statusClass}">
@@ -331,7 +331,28 @@
         devicesEmptyState.style.display = 'none';
         devicesTableWrapper.style.display = 'block';
 
-        devicesTbody.innerHTML = agents.map(renderDeviceRow).join('');
+        const searchInput = document.getElementById('device-search-input');
+        const statusFilter = document.getElementById('device-status-filter');
+
+        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const selectedStatus = statusFilter ? statusFilter.value : 'all';
+
+        const filtered = agents.filter(agent => {
+            const matchesQuery = !query ||
+                (agent.hostname && agent.hostname.toLowerCase().includes(query)) ||
+                (agent.username && agent.username.toLowerCase().includes(query)) ||
+                (agent.local_ip && agent.local_ip.toLowerCase().includes(query)) ||
+                (agent.public_ip && agent.public_ip.toLowerCase().includes(query));
+
+            const isOnline = agent.is_online;
+            const matchesStatus = (selectedStatus === 'all') ||
+                (selectedStatus === 'online' && isOnline) ||
+                (selectedStatus === 'idle' && !isOnline);
+
+            return matchesQuery && matchesStatus;
+        });
+
+        devicesTbody.innerHTML = filtered.map(renderDeviceRow).join('');
     }
 
     // ============ POLLING ============
@@ -405,10 +426,24 @@
         }
     }
 
+    // Filter bar event listeners
+    const searchInputEl = document.getElementById('device-search-input');
+    const statusFilterEl = document.getElementById('device-status-filter');
+    if (searchInputEl) {
+        searchInputEl.addEventListener('input', function () {
+            if (latestData) updateDevicesPage(latestData);
+        });
+    }
+    if (statusFilterEl) {
+        statusFilterEl.addEventListener('change', function () {
+            if (latestData) updateDevicesPage(latestData);
+        });
+    }
+
     // Initial fetch
     fetchAgents();
 
-    // Start polling every 5 seconds
+    // Start polling every 500ms
     setInterval(fetchAgents, POLL_INTERVAL);
 
 })();
