@@ -585,6 +585,57 @@ def register_uninstaller(target_exe, app_dir):
             pass
 
 
+def perform_uninstallation():
+    """Unregisters registry keys, kills background process, deletes agent directory, and shows confirmation."""
+    if os.name != 'nt':
+        return
+
+    try:
+        import winreg, subprocess
+        kill_running_agent()
+
+        # Remove Startup Key
+        try:
+            run_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Run', 0, winreg.KEY_SET_VALUE)
+            winreg.DeleteValue(run_key, 'SystemMonitorAgent')
+            winreg.CloseKey(run_key)
+        except Exception:
+            pass
+
+        # Remove Uninstall Keys
+        uninst_paths = [
+            (winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent'),
+            (winreg.HKEY_CURRENT_USER, r'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent'),
+            (winreg.HKEY_LOCAL_MACHINE, r'Software\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent'),
+            (winreg.HKEY_LOCAL_MACHINE, r'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent')
+        ]
+        for hkey, path in uninst_paths:
+            try:
+                winreg.DeleteKey(hkey, path)
+            except Exception:
+                pass
+
+        # Delete agent ID file
+        if os.path.exists(AGENT_ID_FILE):
+            try:
+                os.remove(AGENT_ID_FILE)
+            except Exception:
+                pass
+
+        show_message_box(
+            "System Drive Agent Uninstalled",
+            "System Drive Agent has been uninstalled successfully from this PC.",
+            0x00000040
+        )
+
+        # Self-delete AppData directory via background CMD script after process terminates
+        app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
+        cmd = f'timeout /t 2 & rmdir /s /q "{app_dir}"'
+        subprocess.Popen(f'cmd /c "{cmd}"', shell=True, creationflags=0x08000000)
+    except Exception as e:
+        print(f"[UNINSTALL] Notice: {e}")
+
+
 def handle_uninstall():
     """Perform uninstallation when triggered via Windows Programs and Features (--uninstall flag)."""
     if os.name != 'nt' or '--uninstall' not in sys.argv:
@@ -597,50 +648,14 @@ def handle_uninstall():
     )
 
     if res == 6:  # IDYES = 6
-        try:
-            import winreg, subprocess
-            kill_running_agent()
-
-            # Remove Startup Key
-            try:
-                run_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Run', 0, winreg.KEY_SET_VALUE)
-                winreg.DeleteValue(run_key, 'SystemMonitorAgent')
-                winreg.CloseKey(run_key)
-            except Exception:
-                pass
-
-            # Remove Uninstall Keys
-            uninst_paths = [
-                (winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent'),
-                (winreg.HKEY_CURRENT_USER, r'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent'),
-                (winreg.HKEY_LOCAL_MACHINE, r'Software\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent'),
-                (winreg.HKEY_LOCAL_MACHINE, r'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\SystemDriveAgent')
-            ]
-            for hkey, path in uninst_paths:
-                try:
-                    winreg.DeleteKey(hkey, path)
-                except Exception:
-                    pass
-
-            show_message_box(
-                "System Drive Agent Uninstalled",
-                "System Drive Agent has been uninstalled successfully.",
-                0x00000040
-            )
-
-            # Self-delete AppData directory via background CMD script after process terminates
-            app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
-            cmd = f'timeout /t 2 & rmdir /s /q "{app_dir}"'
-            subprocess.Popen(f'cmd /c "{cmd}"', shell=True, creationflags=0x08000000)
-        except Exception:
-            pass
+        perform_uninstallation()
 
     sys.exit(0)
     return True
 
 
 def install_to_startup():
-    """Ask user for confirmation before installing Drive Agent on the PC and setting Windows Startup registry."""
+    """Ask user for confirmation before installing/uninstalling Drive Agent on the PC."""
     if os.name != 'nt':
         return
 
@@ -659,22 +674,37 @@ def install_to_startup():
         # Always ensure uninstaller registry key is present
         register_uninstaller(target_exe, app_dir)
 
-        # If running installer for the first time from outside AppData directory
+        # If running installer from outside AppData directory
         if not is_installed_path:
             is_silent = bool('--silent' in sys.argv or '--reconnect' in sys.argv or '--quiet' in sys.argv or '--yes' in sys.argv)
             if not is_silent:
-                res = show_message_box(
-                    "System Drive Agent Setup",
-                    "Do you want to install Drive Agent on this PC?",
-                    0x00000004 | 0x00000020
-                )
-                if res != 6:  # User clicked NO or closed window
-                    show_message_box(
+                if os.path.exists(target_exe):
+                    # Already installed! Ask user if they want to UNINSTALL
+                    res = show_message_box(
                         "System Drive Agent Setup",
-                        "Installation cancelled by user.",
-                        0x00000040
+                        "System Drive Agent is ALREADY INSTALLED on this PC.\n\nWould you like to UNINSTALL System Drive Agent from this PC?",
+                        0x00000003 | 0x00000020  # Yes / No / Cancel
                     )
-                    sys.exit(0)
+                    if res == 6:  # IDYES = 6 -> User clicked YES to UNINSTALL
+                        perform_uninstallation()
+                        sys.exit(0)
+                    elif res == 2:  # IDCANCEL = 2 -> User clicked CANCEL
+                        sys.exit(0)
+                    # If user clicked NO (7), proceed to re-install/re-connect
+                else:
+                    # Not installed yet! Ask user if they want to INSTALL
+                    res = show_message_box(
+                        "System Drive Agent Setup",
+                        "Do you want to install System Drive Agent on this PC?",
+                        0x00000004 | 0x00000020
+                    )
+                    if res != 6:  # User clicked NO or closed window
+                        show_message_box(
+                            "System Drive Agent Setup",
+                            "Installation cancelled by user.",
+                            0x00000040
+                        )
+                        sys.exit(0)
 
             # Kill any existing background agent process so file overwrite succeeds cleanly
             kill_running_agent()
