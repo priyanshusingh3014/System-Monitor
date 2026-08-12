@@ -353,6 +353,51 @@
 
             </div>
 
+            <!-- PAGE VIEW 4: STORAGE -->
+            <div class="page-view" id="page-storage" style="display:none;">
+
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div class="page-title-wrap">
+                        <h1 class="page-title" style="color: #8b0000;">Storage Vaults &amp; Locations</h1>
+                        <p class="page-subtitle">Manage local and network storage volumes across enrolled devices</p>
+                    </div>
+                </div>
+
+                <!-- Storage Table Section -->
+                <div class="activity-section" id="storage-table-section">
+
+                    <!-- Empty State -->
+                    <div class="empty-state" id="storage-empty-state" style="display:none;">
+                        <div class="empty-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                            </svg>
+                        </div>
+                        <p class="empty-text">No storage vaults registered yet.</p>
+                        <p class="empty-hint">Run <code>agent_client.exe</code> on any machine to register its storage pools.</p>
+                    </div>
+
+                    <div class="table-wrapper" id="storage-table-wrapper">
+                        <table class="activity-table" id="storage-table">
+                            <thead>
+                                <tr>
+                                    <th style="color: #8b0000; font-weight: 600;">Pool Name</th>
+                                    <th style="color: #8b0000; font-weight: 600;">Mount Directory</th>
+                                    <th style="color: #8b0000; font-weight: 600;">Capacity Used</th>
+                                    <th style="color: #8b0000; font-weight: 600;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storage-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
         </main>
 
         <!-- Footer -->
@@ -388,6 +433,6 @@
         </div>
     </div>
 
-    <script src="{% static 'monitor/dashboard.js' %}?v=10006"></script>
+    <script src="{% static 'monitor/dashboard.js' %}?v=10007"></script>
 </body>
 </html>

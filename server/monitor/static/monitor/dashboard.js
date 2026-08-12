@@ -27,6 +27,11 @@
     const devicesTableWrapper = document.getElementById('devices-table-wrapper');
     const devicesTbody = document.getElementById('devices-tbody');
 
+    // ---- DOM Refs: Storage Page ----
+    const storageEmptyState = document.getElementById('storage-empty-state');
+    const storageTableWrapper = document.getElementById('storage-table-wrapper');
+    const storageTbody = document.getElementById('storage-tbody');
+
     // ---- DOM Refs: Navigation ----
     const navItems = document.querySelectorAll('.nav-item');
     const pageViews = document.querySelectorAll('.page-view');
@@ -118,6 +123,12 @@
     const pageMap = {
         'nav-dashboard': 'page-dashboard',
         'nav-devices': 'page-devices',
+        'nav-backup-jobs': 'page-backup-jobs',
+        'nav-storage': 'page-storage',
+        'nav-recovery': 'page-recovery',
+        'nav-security': 'page-security',
+        'nav-logs': 'page-logs',
+        'nav-settings': 'page-settings',
     };
 
     document.addEventListener('click', function (e) {
@@ -211,6 +222,7 @@
         if (latestData) {
             if (pageId === 'page-dashboard') updateDashboard(latestData);
             if (pageId === 'page-devices') updateDevicesPage(latestData);
+            if (pageId === 'page-storage') updateStoragePage(latestData);
         }
     });
 
@@ -334,6 +346,81 @@
         devicesTbody.innerHTML = agents.map(renderDeviceRow).join('');
     }
 
+    // ============ STORAGE PAGE ============
+
+    function renderStoragePoolRow(pool) {
+        const isOptimal = pool.percent < 85;
+        const statusText = isOptimal ? '• Optimal' : '• High Load';
+
+        const vaultIcon = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#8b0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px; vertical-align:middle;">
+            <rect x="2" y="4" width="20" height="8" rx="2"/>
+            <rect x="2" y="14" width="20" height="8" rx="2"/>
+            <line x1="6" y1="8" x2="6.01" y2="8"/>
+            <line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>`;
+
+        const badgeBg = isOptimal ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+        const badgeColor = isOptimal ? '#10b981' : '#ef4444';
+        const badgeBorder = isOptimal ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+
+        return `
+            <tr>
+                <td>
+                    <div style="display:flex; align-items:center;">
+                        ${vaultIcon}
+                        <strong style="color: var(--text-primary); font-size: 0.9rem;">${pool.pool_name}</strong>
+                    </div>
+                </td>
+                <td><code style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem;">${pool.mount_dir}</code></td>
+                <td>
+                    <span style="color: #8b0000; font-weight: 600; font-size: 0.88rem;">
+                        ${formatBytesShort(pool.used)} / ${formatBytesShort(pool.total)}
+                    </span>
+                </td>
+                <td>
+                    <span class="status-badge" style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 10px; border-radius: 100px; font-weight: 600;">
+                        ${statusText}
+                    </span>
+                </td>
+            </tr>
+        `;
+    }
+
+    function updateStoragePage(data) {
+        const agents = data.agents || [];
+        const pools = [];
+
+        agents.forEach(agent => {
+            const host = agent.hostname || 'Device';
+            const user = agent.username ? ` (${agent.username})` : '';
+            const drives = agent.drives || [];
+
+            drives.forEach(d => {
+                const driveLetter = d.mountpoint || d.device || 'Storage Drive';
+                pools.push({
+                    pool_name: `${host}${user} — Drive ${driveLetter}`,
+                    mount_dir: driveLetter,
+                    used: d.used || 0,
+                    total: d.total || 0,
+                    percent: d.percent || 0
+                });
+            });
+        });
+
+        if (pools.length === 0) {
+            if (storageEmptyState) storageEmptyState.style.display = 'flex';
+            if (storageTableWrapper) storageTableWrapper.style.display = 'none';
+            return;
+        }
+
+        if (storageEmptyState) storageEmptyState.style.display = 'none';
+        if (storageTableWrapper) storageTableWrapper.style.display = 'block';
+
+        if (storageTbody) {
+            storageTbody.innerHTML = pools.map(renderStoragePoolRow).join('');
+        }
+    }
+
     // ============ POLLING ============
 
     async function fetchAgents() {
@@ -348,6 +435,7 @@
             if (activePage) {
                 if (activePage.id === 'page-dashboard') updateDashboard(data);
                 if (activePage.id === 'page-devices') updateDevicesPage(data);
+                if (activePage.id === 'page-storage') updateStoragePage(data);
             } else {
                 updateDashboard(data);
             }
