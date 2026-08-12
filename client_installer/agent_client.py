@@ -93,7 +93,8 @@ IGNORED_PATTERNS = [
     'Windows', 'Program Files', 'Program Files (x86)', 'System Volume Information',
     '$Recycle.Bin', '$RECYCLE.BIN', '__pycache__', '.venv', 'venv', 'node_modules',
     '.git', '.gemini', '.antigravity', 'CacheStorage', 'GPUCache', 'IndexedDB',
-    'prefetch', 'temp', 'tmp', 'crashdumps', 'logs', 'telemetry', 'diagnostics'
+    'prefetch', 'temp', 'tmp', 'crashdumps', 'logs', 'telemetry', 'diagnostics',
+    'screenshot', 'screenshots', 'onedrive'
 ]
 
 
@@ -101,7 +102,7 @@ def is_ignored(path):
     filename = os.path.basename(path)
     fn_lower = filename.lower()
 
-    if fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('f_') or fn_lower.startswith('todelete_'):
+    if fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('f_') or fn_lower.startswith('todelete_') or fn_lower.startswith('screenshot'):
         return True
 
     # Check ignored system paths
@@ -210,6 +211,10 @@ if HAS_WATCHDOG:
 
         def on_modified(self, event):
             if event.is_directory or is_ignored(event.src_path):
+                return
+            _, ext = os.path.splitext(event.src_path.lower())
+            # Images, media, and archives are modified automatically by OS background indexing; ignore on_modified
+            if ext in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.tiff', '.psd', '.ai', '.raw', '.heic', '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.zip', '.rar', '.7z', '.tar', '.gz', '.iso'}:
                 return
             try:
                 new_size = os.path.getsize(event.src_path)

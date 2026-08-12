@@ -230,6 +230,7 @@ def api_agents(request):
     BackupActivity.objects.filter(timestamp__lt=cutoff_time).delete()
     BackupActivity.objects.filter(event__icontains="Backup Complete").delete()
     BackupActivity.objects.filter(event__icontains="test").delete()
+    BackupActivity.objects.filter(event__icontains="Screenshot").delete()
 
     # Query DB activities from the last 48 hours (newest first)
     allowed_prefixes = ("File Added:", "File Deleted:", "File Renamed:", "File Modified:")
