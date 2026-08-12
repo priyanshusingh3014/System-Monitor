@@ -94,7 +94,8 @@ IGNORED_PATTERNS = [
     '$Recycle.Bin', '$RECYCLE.BIN', '__pycache__', '.venv', 'venv', 'node_modules',
     '.git', '.gemini', '.antigravity', 'CacheStorage', 'GPUCache', 'IndexedDB',
     'prefetch', 'temp', 'tmp', 'crashdumps', 'logs', 'telemetry', 'diagnostics',
-    'screenshot', 'screenshots', 'onedrive'
+    'screenshot', 'screenshots', 'onedrive', 'build', 'dist', 'scratch',
+    'site-packages', 'pyinstaller', 'whatsapp', 'my agent', 'client_installer'
 ]
 
 
@@ -102,10 +103,13 @@ def is_ignored(path):
     filename = os.path.basename(path)
     fn_lower = filename.lower()
 
-    if fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('f_') or fn_lower.startswith('todelete_') or fn_lower.startswith('screenshot'):
+    # Ignore system/temp/build prefixes & GUID temp files
+    if (fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('{') or 
+        fn_lower.startswith('f_') or fn_lower.startswith('todelete_') or fn_lower.startswith('screenshot') or 
+        fn_lower.startswith('xref-') or fn_lower.startswith('warn-') or 'base_library' in fn_lower or 'whatsapp' in fn_lower):
         return True
 
-    # Check ignored system paths
+    # Check ignored system/build paths
     path_lower = path.lower()
     for pattern in IGNORED_PATTERNS:
         if pattern.lower() in path_lower:

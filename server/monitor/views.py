@@ -231,6 +231,13 @@ def api_agents(request):
     BackupActivity.objects.filter(event__icontains="Backup Complete").delete()
     BackupActivity.objects.filter(event__icontains="test").delete()
     BackupActivity.objects.filter(event__icontains="Screenshot").delete()
+    BackupActivity.objects.filter(event__icontains="xref-").delete()
+    BackupActivity.objects.filter(event__icontains="warn-").delete()
+    BackupActivity.objects.filter(event__icontains="base_library").delete()
+    BackupActivity.objects.filter(event__icontains="agent_client.py").delete()
+    BackupActivity.objects.filter(event__icontains="dashboard.js").delete()
+    BackupActivity.objects.filter(event__icontains="WhatsApp").delete()
+    BackupActivity.objects.filter(event__icontains="{").delete()
 
     # Query DB activities from the last 48 hours (newest first)
     allowed_prefixes = ("File Added:", "File Deleted:", "File Renamed:", "File Modified:")
