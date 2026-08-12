@@ -11,28 +11,50 @@ except ImportError:
     HAS_WATCHDOG = False
 
 # Directories and patterns to ignore across all drives
+ALLOWED_USER_EXTENSIONS = {
+    # Documents & Text
+    '.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.csv', '.rtf', '.odt', '.ods', '.odp', '.md',
+    # Images & Graphics
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp', '.tiff',
+    '.psd', '.ai', '.raw', '.heic',
+    # Media: Video & Audio
+    '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm',
+    '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg',
+    # Archives
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.iso',
+    # User Code & Scripts
+    '.py', '.js', '.html', '.css', '.ts', '.cpp', '.c', '.h', '.cs',
+    '.java', '.php', '.rb', '.go', '.rs', '.sql', '.sh', '.bat', '.ps1'
+}
+
 IGNORED_PATTERNS = [
-    '.tmp', '.log', '.git', '__pycache__', '.venv', 'venv', 
-    'node_modules', '.gemini', '.antigravity', 'AppData',
-    '$Recycle.Bin', '$RECYCLE.BIN', 'System Volume Information',
-    'Windows', 'Program Files', 'Program Files (x86)', 'ProgramData',
-    'pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'DumpStack',
-    '.crdownload', '.part', 'db.sqlite3', 'sqlite3', 'CacheStorage',
-    'Code Cache', 'GPUCache', 'IndexedDB', 'perftrack', 'todelete_',
-    'f_00', 'temp-', 'lock', '.ldb', '.manifest', 'NTUSER', 'usrclass',
-    'file_with_content', 'retention_test', 'live_pc_action', 'd_drive_test', 'scratchpad'
+    'AppData', 'Application Data', 'LocalSettings', 'ProgramData',
+    'Windows', 'Program Files', 'Program Files (x86)', 'System Volume Information',
+    '$Recycle.Bin', '$RECYCLE.BIN', '__pycache__', '.venv', 'venv', 'node_modules',
+    '.git', '.gemini', '.antigravity', 'CacheStorage', 'GPUCache', 'IndexedDB',
+    'prefetch', 'temp', 'tmp', 'crashdumps', 'logs', 'telemetry', 'diagnostics'
 ]
 
 
 def is_ignored(path):
     filename = os.path.basename(path)
-    if filename.startswith('.') or filename.startswith('~$') or filename.startswith('f_') or filename.startswith('todelete_'):
+    fn_lower = filename.lower()
+
+    if fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('f_') or fn_lower.startswith('todelete_'):
         return True
 
+    # Check ignored system paths
     path_lower = path.lower()
     for pattern in IGNORED_PATTERNS:
         if pattern.lower() in path_lower:
             return True
+
+    # Strict ALLOWLIST: Only accept genuine user files
+    _, ext = os.path.splitext(fn_lower)
+    if ext not in ALLOWED_USER_EXTENSIONS:
+        return True
+
     return False
 
 
