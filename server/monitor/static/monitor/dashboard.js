@@ -350,7 +350,7 @@
 
     function renderStoragePoolRow(pool) {
         const isOptimal = pool.percent < 85;
-        const statusText = isOptimal ? '• Optimal' : '• High Load';
+        const statusText = isOptimal ? '• Optimal' : '• Low Storage';
 
         const vaultIcon = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#8b0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px; vertical-align:middle;">
             <rect x="2" y="4" width="20" height="8" rx="2"/>
