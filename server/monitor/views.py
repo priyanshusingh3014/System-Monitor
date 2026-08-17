@@ -354,7 +354,10 @@ def api_uninstall_agent(request):
 
     # Delete records by any identifier that matches
     if agent_id:
-        AgentReport.objects.filter(agent_id=agent_id).delete()
+        try:
+            AgentReport.objects.filter(agent_id=agent_id).delete()
+        except Exception:
+            pass  # agent_id might not be a valid UUID
     if hostname:
         AgentReport.objects.filter(hostname__iexact=hostname).delete()
     if mac and mac != '—':
@@ -363,13 +366,17 @@ def api_uninstall_agent(request):
         AgentReport.objects.filter(public_ip=client_ip).delete()
         AgentReport.objects.filter(local_ip=client_ip).delete()
 
-    # Delete any blacklisted DeletedAgent entries
+    # Blacklist in DeletedAgent so if any background client is still alive, it gets a 403 STOP
     if agent_id:
-        DeletedAgent.objects.filter(agent_id=agent_id).delete()
-    if hostname:
-        DeletedAgent.objects.filter(hostname__iexact=hostname).delete()
+        DeletedAgent.objects.update_or_create(
+            agent_id=agent_id,
+            defaults={'hostname': hostname, 'mac_address': mac if mac != '—' else ''}
+        )
     if mac and mac != '—':
-        DeletedAgent.objects.filter(mac_address__iexact=mac).delete()
+        DeletedAgent.objects.update_or_create(
+            agent_id=f"mac_{mac}",
+            defaults={'hostname': hostname, 'mac_address': mac}
+        )
 
     # Clear all old activities so dashboard starts fresh after reinstall
     BackupActivity.objects.all().delete()

@@ -559,13 +559,14 @@ def show_message_box(title, text, style=0):
 
 
 def kill_running_agent():
-    """Kill any running system_monitor_agent process so file replacement succeeds."""
+    """Kill any running system_monitor_agent or agent_client process so cleanup succeeds."""
     if os.name != 'nt':
         return
     try:
         import subprocess
-        subprocess.run(['taskkill', '/F', '/IM', 'system_monitor_agent.exe', '/T'],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for exe_name in ['system_monitor_agent.exe', 'agent_client.exe', 'DriveAgentSetup.exe']:
+            subprocess.run(['taskkill', '/F', '/IM', exe_name, '/T'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(0.5)
     except Exception:
         pass
