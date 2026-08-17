@@ -48,6 +48,8 @@ def get_config_file_path():
     return os.path.join(script_dir, "config.json")
 
 
+DEFAULT_SERVER_URL = "https://system-monitor-s3q7.onrender.com"
+
 def get_base_url():
     env_url = os.environ.get("SERVER_BASE_URL", "").strip()
     if env_url:
@@ -64,9 +66,7 @@ def get_base_url():
         except Exception:
             pass
 
-    raise RuntimeError(
-        "Server URL is not configured. Set SERVER_BASE_URL or add config.json with server_url."
-    )
+    return DEFAULT_SERVER_URL
 
 BASE_URL = get_base_url()
 SERVER_URL = f"{BASE_URL}/api/report/"
