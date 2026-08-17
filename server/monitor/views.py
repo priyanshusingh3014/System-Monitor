@@ -13,7 +13,7 @@ from django.views.decorators.http import require_http_methods
 from .models import AgentReport, BackupActivity, DeletedAgent
 
 
-ONLINE_TIMEOUT_SECONDS = 1
+ONLINE_TIMEOUT_SECONDS = 15
 
 
 def format_time_ago(dt):
