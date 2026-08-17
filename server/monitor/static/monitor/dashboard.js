@@ -82,8 +82,39 @@
     }
 
     function getDashboardVaultStorage(data) {
-        if (data.vault_storage) return data.vault_storage;
-        if (data.server_storage) return data.server_storage;
+        if (data.vault_storage && data.vault_storage.total > 0) {
+            try {
+                localStorage.setItem('cached_vault_storage', JSON.stringify(data.vault_storage));
+            } catch (e) {}
+            return data.vault_storage;
+        }
+
+        // Check if any agent has drives data
+        if (data.agents && data.agents.length > 0) {
+            for (const agent of data.agents) {
+                if (agent.drives && agent.drives.length > 0) {
+                    const total = agent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
+                    const used = agent.drives.reduce((sum, d) => sum + (d.used || 0), 0);
+                    if (total > 0) {
+                        const vs = { total, used, free: total - used };
+                        try {
+                            localStorage.setItem('cached_vault_storage', JSON.stringify(vs));
+                        } catch (e) {}
+                        return vs;
+                    }
+                }
+            }
+        }
+
+        // Retrieve from localStorage cache of this PC
+        try {
+            const cached = localStorage.getItem('cached_vault_storage');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (parsed && parsed.total > 0) return parsed;
+            }
+        } catch (e) {}
+
         return { total: 0, used: 0 };
     }
 
