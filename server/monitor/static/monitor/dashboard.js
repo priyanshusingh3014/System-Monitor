@@ -315,18 +315,17 @@
             }
         }
 
-        // 1. Vault Storage & Active status for the selected device
-        const selAgent = agents.find(a => a.hostname === selectedDeviceFilter || a.agent_id === selectedDeviceFilter) || (agents.length > 0 ? agents[0] : null);
+        // Active Agents stat card: show count like "1 Agent" or "3 Agents"
+        const totalAgentCount = agents.length;
+        const agentLabel = totalAgentCount === 1 ? '1 Agent' : `${totalAgentCount} Agents`;
+        setTextIfChanged(activeAgentsValue, agentLabel);
+
         let ss = { total: 0, used: 0 };
+        const selAgent = agents.find(a => a.hostname === selectedDeviceFilter || a.agent_id === selectedDeviceFilter) || (agents.length > 0 ? agents[0] : null);
         if (selAgent && selAgent.drives && selAgent.drives.length > 0) {
             const t = selAgent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
             const u = selAgent.drives.reduce((sum, d) => sum + (d.used || 0), 0);
             ss = { total: t, used: u, free: Math.max(0, t - u) };
-            setTextIfChanged(activeAgentsValue, selAgent.is_online ? 'Active' : 'Offline');
-        } else if (selAgent) {
-            setTextIfChanged(activeAgentsValue, selAgent.is_online ? 'Active' : 'Offline');
-        } else {
-            setTextIfChanged(activeAgentsValue, '0 Online');
         }
         setTextIfChanged(totalStorageValue, `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`);
 
