@@ -323,37 +323,23 @@ def api_agents(request):
             except Exception:
                 pass
     except Exception:
+        pass
+
+    if host_total == 0:
         try:
-            usage = psutil.disk_usage(os.path.abspath('/'))
+            root_path = 'C:\\' if os.name == 'nt' else '/'
+            usage = psutil.disk_usage(root_path)
             host_total = usage.total
             host_used = usage.used
             host_free = usage.free
         except Exception:
             pass
 
-    # Sum drives of active enrolled agents
-    agent_total = 0
-    agent_used = 0
-    agent_free = 0
-
-    for agent in agents:
-        if isinstance(agent.drives, list):
-            for d in agent.drives:
-                if isinstance(d, dict):
-                    agent_total += int(d.get('total', 0) or 0)
-                    agent_used += int(d.get('used', 0) or 0)
-                    agent_free += int(d.get('free', 0) or 0)
-
-    # Combine host server machine storage with agent storage dynamically
-    total_bytes = max(host_total, agent_total) if agent_total == 0 else (host_total + agent_total)
-    used_bytes = max(host_used, agent_used) if agent_used == 0 else (host_used + agent_used)
-    free_bytes = max(host_free, agent_free) if agent_free == 0 else (host_free + agent_free)
-
     server_storage = {
-        'total': total_bytes,
-        'used': used_bytes,
-        'free': free_bytes,
-        'percent': round((used_bytes / total_bytes * 100), 1) if total_bytes > 0 else 0
+        'total': host_total,
+        'used': host_used,
+        'free': host_free,
+        'percent': round((host_used / host_total * 100), 1) if host_total > 0 else 0
     }
 
     host_name = socket.gethostname()
