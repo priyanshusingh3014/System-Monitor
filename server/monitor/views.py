@@ -64,6 +64,10 @@ def api_report(request):
         else:
             return JsonResponse({'status': 'stopped', 'message': 'Agent deleted by admin.'}, status=403)
 
+    # Prevent duplicates: if a record with the same MAC already exists under a different agent_id, remove it
+    if mac and mac != '—':
+        AgentReport.objects.filter(mac_address=mac).exclude(agent_id=agent_id).delete()
+
     # Update or create the agent record
     agent, created = AgentReport.objects.update_or_create(
         agent_id=agent_id,
