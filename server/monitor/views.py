@@ -85,9 +85,11 @@ def api_report(request):
     )
 
     if created:
+        # Clear any leftover activities so dashboard starts clean
+        BackupActivity.objects.all().delete()
         BackupActivity.objects.create(
-            event=f"Agent Enrolled: {agent.hostname} ({agent.username or 'User'})",
-            data_size="System Agent",
+            event=f"App Installed: System Drive Agent",
+            data_size="0 KB",
             status="Success",
             status_type="success"
         )
@@ -365,9 +367,12 @@ def api_uninstall_agent(request):
     if mac and mac != '—':
         DeletedAgent.objects.filter(mac_address__iexact=mac).delete()
 
+    # Clear all old activities so dashboard starts fresh after reinstall
+    BackupActivity.objects.all().delete()
+
     BackupActivity.objects.create(
-        event=f"Agent Uninstalled: {hostname or 'PC'} ({username})",
-        data_size="System Agent",
+        event=f"App Uninstalled: System Drive Agent",
+        data_size="0 KB",
         status="Success",
         status_type="success"
     )
