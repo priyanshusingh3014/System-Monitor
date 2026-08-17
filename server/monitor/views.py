@@ -211,6 +211,22 @@ def api_trigger_activity(request):
     BackupActivity.objects.filter(timestamp__lt=cutoff).delete()
 
     hostname = data.get('hostname', '').strip()
+    agent_id = data.get('agent_id', '').strip()
+    if not hostname:
+        if agent_id:
+            try:
+                matched = AgentReport.objects.filter(agent_id=agent_id).first()
+                if matched:
+                    hostname = matched.hostname
+            except Exception:
+                pass
+        if not hostname:
+            client_ip = get_client_ip(request)
+            if client_ip and client_ip not in ('127.0.0.1', '::1'):
+                matched = AgentReport.objects.filter(public_ip=client_ip).first() or AgentReport.objects.filter(local_ip=client_ip).first()
+                if matched:
+                    hostname = matched.hostname
+
     activity = BackupActivity.objects.create(
         event=event_text,
         data_size=data_size,

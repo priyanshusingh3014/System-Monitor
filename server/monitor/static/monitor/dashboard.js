@@ -330,14 +330,13 @@
         }
         setTextIfChanged(totalStorageValue, `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`);
 
-        // 2. Recent PC changes filtered for the selected device
+        // 2. Recent PC changes filtered strictly for the selected device
         let activities = data.recent_activities || [];
         if (selAgent) {
             const filterLow = (selAgent.hostname || '').toLowerCase();
             activities = activities.filter(act => {
                 const actHost = (act.hostname || '').toLowerCase();
-                const actEvent = (act.event || '').toLowerCase();
-                return actHost === filterLow || actEvent.includes(filterLow) || !act.hostname;
+                return actHost === filterLow;
             });
         }
 
