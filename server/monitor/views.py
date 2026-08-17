@@ -464,17 +464,20 @@ def api_agents(request):
     BackupActivity.objects.filter(event__icontains="dashboard.js").delete()
     BackupActivity.objects.filter(event__icontains="WhatsApp").delete()
     BackupActivity.objects.filter(event__icontains="{").delete()
+    BackupActivity.objects.filter(hostname='').delete()
 
     # Query DB activities from the last 48 hours (newest first)
-    all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).order_by('-id')
+    all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).exclude(hostname='').order_by('-id')
     
     db_activities = []
     seen_recent_targets = {}
     for act in all_activities:
         if not is_dashboard_activity(act.event):
             continue
+        if not act.hostname:
+            continue
 
-        t_key = get_target_key(act.event)
+        t_key = f"{act.hostname}:{get_target_key(act.event)}"
         if t_key in seen_recent_targets and abs((seen_recent_targets[t_key] - act.timestamp).total_seconds()) <= 5:
             continue
 
