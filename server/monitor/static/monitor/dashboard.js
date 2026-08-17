@@ -14,6 +14,7 @@
     // ---- DOM Refs: Dashboard ----
     const activeAgentsValue = document.getElementById('active-agents-value');
     const totalStorageValue = document.getElementById('total-storage-value');
+    const dashboardEnrolledValue = document.getElementById('dashboard-enrolled-value');
     const emptyState = document.getElementById('empty-state');
     const tableWrapper = document.getElementById('table-wrapper');
     const activitiesTbody = document.getElementById('activities-tbody');
@@ -284,6 +285,7 @@
 
         const ss = getDashboardVaultStorage(data);
         setTextIfChanged(totalStorageValue, `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`);
+        setTextIfChanged(dashboardEnrolledValue, `${stats.total} Device${stats.total !== 1 ? 's' : ''}`);
 
         const activities = data.recent_activities || [];
 
