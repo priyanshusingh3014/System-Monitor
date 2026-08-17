@@ -270,7 +270,8 @@
 
         const activities = data.recent_activities || [];
 
-        if (activities.length === 0) {
+        // If no devices are online, show empty state regardless of old activities
+        if (stats.online === 0 || activities.length === 0) {
             if (emptyState) emptyState.style.display = 'flex';
             if (tableWrapper) tableWrapper.style.display = 'none';
             return;
