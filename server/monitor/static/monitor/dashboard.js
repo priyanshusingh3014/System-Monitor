@@ -495,16 +495,22 @@
             const user = agent.username ? ` (${agent.username})` : '';
             const drives = agent.drives || [];
 
-            drives.forEach(d => {
-                const driveLetter = d.mountpoint || d.device || 'Storage Drive';
+            if (drives.length > 0) {
+                // Dynamically join mount directories (e.g. "C:\, D:\")
+                const mountDirs = drives.map(d => d.mountpoint || d.device).filter(Boolean).join(', ');
+                // Dynamically sum capacity used and total across C: and D: drives
+                const total = drives.reduce((sum, d) => sum + (d.total || 0), 0);
+                const used = drives.reduce((sum, d) => sum + (d.used || 0), 0);
+                const percent = total > 0 ? (used / total) * 100 : 0;
+
                 pools.push({
-                    pool_name: `${host}${user} — Drive ${driveLetter}`,
-                    mount_dir: driveLetter,
-                    used: d.used || 0,
-                    total: d.total || 0,
-                    percent: d.percent || 0
+                    pool_name: `${host}${user}`,
+                    mount_dir: mountDirs || '—',
+                    used: used,
+                    total: total,
+                    percent: percent
                 });
-            });
+            }
         });
 
         if (pools.length === 0) {
@@ -517,7 +523,10 @@
         if (storageTableWrapper) storageTableWrapper.style.display = 'block';
 
         if (storageTbody) {
-            storageTbody.innerHTML = pools.map(renderStoragePoolRow).join('');
+            const newHtml = pools.map(renderStoragePoolRow).join('');
+            if (storageTbody.innerHTML !== newHtml) {
+                storageTbody.innerHTML = newHtml;
+            }
         }
     }
 
