@@ -68,7 +68,7 @@ def get_base_url():
 BASE_URL = get_base_url()
 SERVER_URL = f"{BASE_URL}/api/report/"
 ACTIVITY_URL = f"{BASE_URL}/api/activities/create/"
-REPORT_INTERVAL = 0.5  # seconds (500ms millisecond reporting)
+REPORT_INTERVAL = 1.0  # seconds (1 second heartbeat)
 AGENT_ID_FILE = os.path.join(os.path.expanduser("~"), ".system_monitor_agent_id")
 
 ALLOWED_USER_EXTENSIONS = {
@@ -590,11 +590,33 @@ def register_uninstaller(target_exe, app_dir):
 
 
 def perform_uninstallation():
-    """Unregisters registry keys, kills background process, deletes agent directory, and shows confirmation."""
+    """Unregisters registry keys, notifies server to remove device, kills background process, deletes agent directory, and shows confirmation."""
     if os.name != 'nt':
         return
 
     try:
+        # Notify server to remove registered endpoint device completely
+        try:
+            agent_id = get_or_create_agent_id()
+            pc_name = get_genuine_pc_name()
+            user_name = get_genuine_user_name()
+            mac_addr = get_mac_address()
+            uninst_url = f"{BASE_URL}/api/agents/uninstall/"
+            requests.post(
+                uninst_url,
+                json={
+                    "agent_id": agent_id,
+                    "hostname": pc_name,
+                    "username": user_name,
+                    "mac_address": mac_addr
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=5
+            )
+            send_activity_event(f"App Uninstalled: System Drive Agent ({pc_name})", "0 KB")
+        except Exception as e:
+            print(f"[UNINSTALL REPORT NOTICE] {e}")
+
         import winreg, subprocess
         kill_running_agent()
 

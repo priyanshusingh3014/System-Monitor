@@ -388,7 +388,19 @@
 
     function updateStoragePage(data) {
         const agents = data.agents || [];
+        const ss = data.server_storage;
         const pools = [];
+
+        if (ss && ss.total > 0) {
+            const hostName = data.server_hostname || 'Render Server PC';
+            pools.push({
+                pool_name: `${hostName} — Host Server Vault`,
+                mount_dir: '/',
+                used: ss.used || 0,
+                total: ss.total || 0,
+                percent: ss.percent || (ss.total > 0 ? Math.round((ss.used / ss.total) * 100) : 0)
+            });
+        }
 
         agents.forEach(agent => {
             const host = agent.hostname || 'Device';

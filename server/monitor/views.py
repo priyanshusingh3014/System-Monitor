@@ -3,6 +3,7 @@ import json
 import shutil
 import socket
 from datetime import timedelta
+import psutil
 
 from django.conf import settings
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
@@ -99,6 +100,24 @@ def api_report(request):
     }, status=status_code)
 
 
+ALLOWED_USER_EXTENSIONS = {
+    # Documents & Text
+    '.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.csv', '.rtf', '.odt', '.ods', '.odp', '.md',
+    # Images & Graphics
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp', '.tiff',
+    '.psd', '.ai', '.raw', '.heic',
+    # Media: Video & Audio
+    '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm',
+    '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg',
+    # Archives
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.iso',
+    # User Code & Scripts
+    '.py', '.js', '.html', '.css', '.ts', '.cpp', '.c', '.h', '.cs',
+    '.java', '.php', '.rb', '.go', '.rs', '.sql', '.sh', '.bat', '.ps1'
+}
+
+
 def get_target_key(event_str):
     """Extract clean file/app target key without drive suffix e.g. 'File Added: notes.txt (D:)' -> 'notes.txt'"""
     if ":" in event_str:
@@ -109,6 +128,16 @@ def get_target_key(event_str):
             part = part.rsplit(" (", 1)[0].strip()
         return part.lower()
     return event_str.lower()
+
+
+def is_allowed_file_event(event_str):
+    """Check if file event is for an allowed user extension."""
+    allowed_prefixes = ("File Added:", "File Deleted:", "File Renamed:", "File Modified:")
+    if not any(event_str.startswith(p) for p in allowed_prefixes):
+        return True  # Non-file system/agent events allowed
+    target_key = get_target_key(event_str)
+    _, ext = os.path.splitext(target_key)
+    return ext.lower() in ALLOWED_USER_EXTENSIONS
 
 
 @csrf_exempt
@@ -123,6 +152,9 @@ def api_trigger_activity(request):
     job_name = data.get('job_name', '').strip()
     if not job_name:
         return JsonResponse({'status': 'ignored', 'reason': 'empty event'}, status=400)
+
+    if not is_allowed_file_event(job_name):
+        return JsonResponse({'status': 'ignored', 'reason': 'extension_not_allowed'})
 
     data_size = data.get('data_size', '0 KB')
     status = data.get('status', 'Success')
@@ -159,6 +191,13 @@ def api_trigger_activity(request):
         status_type=status_type
     )
 
+    # If event indicates uninstallation of the agent, delete matching AgentReport record from DB
+    if "App Uninstalled: System Drive Agent" in event_text or "Agent Uninstalled" in event_text:
+        if data.get('hostname'):
+            AgentReport.objects.filter(hostname=data.get('hostname')).delete()
+        if data.get('agent_id'):
+            AgentReport.objects.filter(agent_id=data.get('agent_id')).delete()
+
     return JsonResponse({
         'status': 'ok',
         'activity': {
@@ -172,15 +211,78 @@ def api_trigger_activity(request):
     })
 
 
+def get_client_ip(request):
+    """Retrieve remote IP address of client from request headers."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_uninstall_agent(request):
+    """API endpoint called when agent executable is uninstalled from a device."""
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except Exception:
+        data = {}
+
+    agent_id = str(data.get('agent_id', '')).strip()
+    hostname = str(data.get('hostname', '')).strip()
+    mac = str(data.get('mac_address', '')).strip()
+    username = str(data.get('username', 'User')).strip()
+    client_ip = get_client_ip(request)
+
+    # 1. Delete by agent_id (if valid UUID)
+    if agent_id:
+        try:
+            import uuid
+            uuid_obj = uuid.UUID(agent_id)
+            AgentReport.objects.filter(agent_id=uuid_obj).delete()
+        except Exception:
+            pass
+
+    # 2. Delete by hostname
+    if hostname:
+        try:
+            AgentReport.objects.filter(hostname__iexact=hostname).delete()
+        except Exception:
+            pass
+
+    # 3. Delete by MAC address
+    if mac and mac != '—':
+        try:
+            AgentReport.objects.filter(mac_address__iexact=mac).delete()
+        except Exception:
+            pass
+
+    # 4. Delete by Client IP
+    if client_ip and client_ip not in ('127.0.0.1', '::1'):
+        try:
+            AgentReport.objects.filter(public_ip=client_ip).delete()
+            AgentReport.objects.filter(local_ip=client_ip).delete()
+        except Exception:
+            pass
+
+    BackupActivity.objects.create(
+        event=f"Agent Uninstalled: {hostname or 'PC'} ({username})",
+        data_size="System Agent",
+        status="Success",
+        status_type="success"
+    )
+
+    return JsonResponse({'status': 'ok', 'message': 'Agent uninstalled and removed from registered devices'})
+
+
 @require_http_methods(["GET"])
 def api_agents(request):
     now = timezone.now()
-    # Auto-prune stale agents older than 3 days
-    stale_cutoff = now - timedelta(days=3)
-    AgentReport.objects.filter(last_seen__lt=stale_cutoff).delete()
-
     agents = AgentReport.objects.all()
-    online_threshold = now - timedelta(seconds=5)
+    # Device is Online if 1-second heartbeat received within last 4 seconds; Offline if PC shutdown/off
+    online_threshold = now - timedelta(seconds=4)
 
     agents_data = []
     for agent in agents:
@@ -204,23 +306,54 @@ def api_agents(request):
             'is_online': agent.last_seen >= online_threshold if agent.last_seen else False,
         })
 
-    # Calculate genuine vault storage across all drives of enrolled endpoint agents
-    total_bytes = 0
-    used_bytes = 0
-    free_bytes = 0
+    # Dynamic live storage of the host PC/Server running Django/Render link
+    host_total = 0
+    host_used = 0
+    host_free = 0
+
+    try:
+        for part in psutil.disk_partitions(all=False):
+            if 'cdrom' in part.opts or not part.device:
+                continue
+            try:
+                usage = psutil.disk_usage(part.mountpoint)
+                host_total += usage.total
+                host_used += usage.used
+                host_free += usage.free
+            except Exception:
+                pass
+    except Exception:
+        try:
+            usage = psutil.disk_usage(os.path.abspath('/'))
+            host_total = usage.total
+            host_used = usage.used
+            host_free = usage.free
+        except Exception:
+            pass
+
+    # Sum drives of active enrolled agents
+    agent_total = 0
+    agent_used = 0
+    agent_free = 0
 
     for agent in agents:
         if isinstance(agent.drives, list):
             for d in agent.drives:
                 if isinstance(d, dict):
-                    total_bytes += int(d.get('total', 0) or 0)
-                    used_bytes += int(d.get('used', 0) or 0)
-                    free_bytes += int(d.get('free', 0) or 0)
+                    agent_total += int(d.get('total', 0) or 0)
+                    agent_used += int(d.get('used', 0) or 0)
+                    agent_free += int(d.get('free', 0) or 0)
+
+    # Combine host server machine storage with agent storage dynamically
+    total_bytes = max(host_total, agent_total) if agent_total == 0 else (host_total + agent_total)
+    used_bytes = max(host_used, agent_used) if agent_used == 0 else (host_used + agent_used)
+    free_bytes = max(host_free, agent_free) if agent_free == 0 else (host_free + agent_free)
 
     server_storage = {
         'total': total_bytes,
         'used': used_bytes,
         'free': free_bytes,
+        'percent': round((used_bytes / total_bytes * 100), 1) if total_bytes > 0 else 0
     }
 
     host_name = socket.gethostname()
@@ -247,6 +380,8 @@ def api_agents(request):
     seen_recent_targets = {}
     for act in all_activities:
         if any(act.event.startswith(p) for p in allowed_prefixes):
+            if not is_allowed_file_event(act.event):
+                continue
             t_key = get_target_key(act.event)
             # Deduplicate items for the same target key occurring within 5 seconds of each other
             if t_key not in seen_recent_targets or abs((seen_recent_targets[t_key] - act.timestamp).total_seconds()) > 5:
