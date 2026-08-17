@@ -288,52 +288,56 @@
         const agents = data.agents || [];
         const stats = computeStats(agents);
 
-        // Populate device filter dropdown in the 3rd stat card
+        // Populate device filter dropdown with ONLY enrolled devices
         if (deviceFilterSelect) {
-            const currentVal = selectedDeviceFilter;
-            let optionsHtml = '<option value="all">🌐 All Devices</option>';
-            agents.forEach(agent => {
-                const name = agent.hostname || 'Unknown PC';
-                const user = agent.username ? ` (${agent.username})` : '';
-                optionsHtml += `<option value="${name}">🖥️ ${name}${user}</option>`;
-            });
-            if (deviceFilterSelect.innerHTML !== optionsHtml) {
-                deviceFilterSelect.innerHTML = optionsHtml;
-                deviceFilterSelect.value = currentVal;
-                // If previous selection is no longer enrolled, reset to all
-                if (deviceFilterSelect.value !== currentVal) {
-                    selectedDeviceFilter = 'all';
-                    deviceFilterSelect.value = 'all';
+            if (agents.length === 0) {
+                deviceFilterSelect.innerHTML = '<option value="">No Devices Enrolled</option>';
+                selectedDeviceFilter = null;
+            } else {
+                let optionsHtml = '';
+                agents.forEach(agent => {
+                    const name = agent.hostname || 'Unknown PC';
+                    const user = agent.username ? ` (${agent.username})` : '';
+                    optionsHtml += `<option value="${name}">🖥️ ${name}${user}</option>`;
+                });
+
+                // Auto-select first device if no selection or selection missing
+                if (!selectedDeviceFilter || !agents.some(a => a.hostname === selectedDeviceFilter)) {
+                    selectedDeviceFilter = agents[0].hostname;
+                }
+
+                if (deviceFilterSelect.innerHTML !== optionsHtml) {
+                    deviceFilterSelect.innerHTML = optionsHtml;
+                    deviceFilterSelect.value = selectedDeviceFilter;
+                } else if (deviceFilterSelect.value !== selectedDeviceFilter) {
+                    deviceFilterSelect.value = selectedDeviceFilter;
                 }
             }
         }
 
-        // 1. Storage & Active Agents filtered by selected device
-        let ss;
-        if (selectedDeviceFilter === 'all') {
-            ss = getDashboardVaultStorage(data);
-            setTextIfChanged(activeAgentsValue, `${stats.online} Online`);
+        // 1. Vault Storage & Active status for the selected device
+        const selAgent = agents.find(a => a.hostname === selectedDeviceFilter || a.agent_id === selectedDeviceFilter) || (agents.length > 0 ? agents[0] : null);
+        let ss = { total: 0, used: 0 };
+        if (selAgent && selAgent.drives && selAgent.drives.length > 0) {
+            const t = selAgent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
+            const u = selAgent.drives.reduce((sum, d) => sum + (d.used || 0), 0);
+            ss = { total: t, used: u, free: Math.max(0, t - u) };
+            setTextIfChanged(activeAgentsValue, selAgent.is_online ? 'Active' : 'Offline');
+        } else if (selAgent) {
+            setTextIfChanged(activeAgentsValue, selAgent.is_online ? 'Active' : 'Offline');
         } else {
-            const selAgent = agents.find(a => a.hostname === selectedDeviceFilter || a.agent_id === selectedDeviceFilter);
-            if (selAgent && selAgent.drives && selAgent.drives.length > 0) {
-                const t = selAgent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
-                const u = selAgent.drives.reduce((sum, d) => sum + (d.used || 0), 0);
-                ss = { total: t, used: u, free: Math.max(0, t - u) };
-            } else {
-                ss = { total: 0, used: 0 };
-            }
-            setTextIfChanged(activeAgentsValue, selAgent && selAgent.is_online ? 'Active' : 'Offline');
+            setTextIfChanged(activeAgentsValue, '0 Online');
         }
         setTextIfChanged(totalStorageValue, `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`);
 
-        // 2. Activities filtered by selected device
+        // 2. Recent PC changes filtered for the selected device
         let activities = data.recent_activities || [];
-        if (selectedDeviceFilter !== 'all') {
-            const filterLow = selectedDeviceFilter.toLowerCase();
+        if (selAgent) {
+            const filterLow = (selAgent.hostname || '').toLowerCase();
             activities = activities.filter(act => {
                 const actHost = (act.hostname || '').toLowerCase();
                 const actEvent = (act.event || '').toLowerCase();
-                return actHost === filterLow || actEvent.includes(filterLow);
+                return actHost === filterLow || actEvent.includes(filterLow) || !act.hostname;
             });
         }
 
