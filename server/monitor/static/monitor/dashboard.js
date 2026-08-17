@@ -463,12 +463,6 @@
         const badgeColor = isOptimal ? '#10b981' : '#ef4444';
         const badgeBorder = isOptimal ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
 
-        const drivesHtml = (pool.drives_list || []).map(d => `
-            <span style="display:inline-flex; align-items:center; gap:4px; font-size:0.86rem; color:#8b0000; font-weight:600; background:rgba(139,0,0,0.06); padding:3px 8px; border-radius:4px; border:1px solid rgba(139,0,0,0.15);">
-                <span>${d.mount}</span> <span>${formatBytesShort(d.used)} / ${formatBytesShort(d.total)}</span>
-            </span>
-        `).join(' ');
-
         return `
             <tr>
                 <td>
@@ -477,11 +471,15 @@
                         <strong style="color: var(--text-primary); font-size: 0.9rem;">${pool.pool_name}</strong>
                     </div>
                 </td>
-                <td><code style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem;">${pool.mount_dir}</code></td>
                 <td>
-                    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
-                        ${drivesHtml}
-                    </div>
+                    <span style="color: #8b0000; font-weight: 600; font-size: 0.88rem;">
+                        ${pool.c_storage}
+                    </span>
+                </td>
+                <td>
+                    <span style="color: #8b0000; font-weight: 600; font-size: 0.88rem;">
+                        ${pool.d_storage}
+                    </span>
                 </td>
                 <td>
                     <span class="status-badge" style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 10px; border-radius: 100px; font-weight: 600;">
@@ -502,22 +500,22 @@
             const drives = agent.drives || [];
 
             if (drives.length > 0) {
-                // Dynamically list mount directories (e.g. "C:\, D:\")
-                const mountDirs = drives.map(d => d.mountpoint || d.device).filter(Boolean).join(', ');
-                // List each drive's capacity dynamically for the single row
-                const drivesList = drives.map(d => ({
-                    mount: d.mountpoint || d.device || 'Drive',
-                    used: d.used || 0,
-                    total: d.total || 0,
-                }));
+                // Dynamically find C: partition
+                const cDrive = drives.find(d => (d.mountpoint || d.device || '').toUpperCase().includes('C')) || drives[0];
+                // Dynamically find D: partition (or second partition)
+                const dDrive = drives.find(d => (d.mountpoint || d.device || '').toUpperCase().includes('D')) || (drives.length > 1 ? drives[1] : null);
+
+                const cStorage = cDrive ? `${formatBytesShort(cDrive.used)} / ${formatBytesShort(cDrive.total)}` : '—';
+                const dStorage = dDrive ? `${formatBytesShort(dDrive.used)} / ${formatBytesShort(dDrive.total)}` : '—';
+
                 const total = drives.reduce((sum, d) => sum + (d.total || 0), 0);
                 const used = drives.reduce((sum, d) => sum + (d.used || 0), 0);
                 const percent = total > 0 ? (used / total) * 100 : 0;
 
                 pools.push({
                     pool_name: `${host}${user}`,
-                    mount_dir: mountDirs || '—',
-                    drives_list: drivesList,
+                    c_storage: cStorage,
+                    d_storage: dStorage,
                     used: used,
                     total: total,
                     percent: percent
