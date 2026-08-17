@@ -627,7 +627,7 @@ def perform_uninstallation():
         except Exception:
             pass
         if not agent_id:
-            agent_id = str(uuid.uuid4())  # fallback so server call doesn't fail
+            agent_id = str(uuid.uuid4())
 
         pc_name = get_genuine_pc_name()
         user_name = get_genuine_user_name()
@@ -635,7 +635,6 @@ def perform_uninstallation():
 
         # Notify server to remove registered endpoint device — retry up to 3 times
         uninst_url = f"{BASE_URL}/api/agents/uninstall/"
-        server_notified = False
         for attempt in range(3):
             try:
                 resp = requests.post(
@@ -647,19 +646,14 @@ def perform_uninstallation():
                         "mac_address": mac_addr
                     },
                     headers={"Content-Type": "application/json"},
-                    timeout=10
+                    timeout=5
                 )
                 if resp.status_code in (200, 201):
-                    server_notified = True
                     break
             except Exception as e:
-                print(f"[UNINSTALL] Server notify attempt {attempt+1} failed: {e}")
-                time.sleep(1)
+                time.sleep(0.5)
 
-        if not server_notified:
-            print("[UNINSTALL] WARNING: Could not notify server. Device may remain on dashboard.")
-
-        import winreg, subprocess
+        import winreg, subprocess, shutil
         kill_running_agent()
 
         # Remove Startup Key
@@ -690,15 +684,29 @@ def perform_uninstallation():
             except Exception:
                 pass
 
+        # Delete installed files and folder
+        app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
+        target_exe = os.path.join(app_dir, 'system_monitor_agent.exe')
+        target_cfg = os.path.join(app_dir, 'config.json')
+
+        try:
+            if os.path.exists(target_exe):
+                os.remove(target_exe)
+            if os.path.exists(target_cfg):
+                os.remove(target_cfg)
+            if os.path.exists(app_dir):
+                shutil.rmtree(app_dir, ignore_errors=True)
+        except Exception:
+            pass
+
         show_message_box(
             "System Drive Agent Uninstalled",
             "System Drive Agent has been uninstalled successfully from this PC.",
             0x00000040
         )
 
-        # Self-delete AppData directory via background CMD script after process terminates
-        app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
-        cmd = f'timeout /t 2 & rmdir /s /q "{app_dir}"'
+        # Background cleanup in case of locked handles
+        cmd = f'timeout /t 1 & rmdir /s /q "{app_dir}"'
         subprocess.Popen(f'cmd /c "{cmd}"', shell=True, creationflags=0x08000000)
     except Exception as e:
         print(f"[UNINSTALL] Notice: {e}")
@@ -739,39 +747,36 @@ def install_to_startup():
 
         is_installed_path = (os.path.normpath(current_exe).lower() == os.path.normpath(target_exe).lower())
 
-        # Always ensure uninstaller registry key is present
-        register_uninstaller(target_exe, app_dir)
-
         # If running installer from outside AppData directory
         if not is_installed_path:
             is_silent = bool('--silent' in sys.argv or '--reconnect' in sys.argv or '--quiet' in sys.argv or '--yes' in sys.argv)
             if not is_silent:
                 if os.path.exists(target_exe):
-                    # Already installed! Ask user if they want to UNINSTALL
+                    # Already installed! Give user clear choices:
+                    # YES = Reinstall/Update, NO = Uninstall, CANCEL = Exit
                     res = show_message_box(
                         "System Drive Agent Setup",
-                        "System Drive Agent is ALREADY INSTALLED on this PC.\n\nWould you like to UNINSTALL System Drive Agent from this PC?",
+                        "System Drive Agent is already installed on this PC.\n\n"
+                        "• Click YES to REINSTALL / UPDATE\n"
+                        "• Click NO to UNINSTALL\n"
+                        "• Click CANCEL to Exit",
                         0x00000003 | 0x00000020  # Yes / No / Cancel
                     )
-                    if res == 6:  # IDYES = 6 -> User clicked YES to UNINSTALL
+                    if res == 6:  # IDYES -> Proceed directly to fresh re-installation
+                        pass
+                    elif res == 7:  # IDNO -> User wants to UNINSTALL
                         perform_uninstallation()
                         sys.exit(0)
-                    elif res == 2:  # IDCANCEL = 2 -> User clicked CANCEL
+                    else:  # IDCANCEL or closed window
                         sys.exit(0)
-                    # If user clicked NO (7), proceed to re-install/re-connect
                 else:
-                    # Not installed yet! Ask user if they want to INSTALL
+                    # Not installed yet! Ask user to install
                     res = show_message_box(
                         "System Drive Agent Setup",
                         "Do you want to install System Drive Agent on this PC?",
-                        0x00000004 | 0x00000020
+                        0x00000004 | 0x00000020  # Yes / No
                     )
                     if res != 6:  # User clicked NO or closed window
-                        show_message_box(
-                            "System Drive Agent Setup",
-                            "Installation cancelled by user.",
-                            0x00000040
-                        )
                         sys.exit(0)
 
             # Kill any existing background agent process so file overwrite succeeds cleanly
