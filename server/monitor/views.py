@@ -317,19 +317,14 @@ def get_dashboard_vault_storage(request=None, agents_data=None):
     except Exception:
         pass
 
-    # 3. Default fallback to genuine PC drives storage (C: + D: partitions = 476 GB)
-    default_total = 510764507136  # ~475.7 GB (C: + D:)
-    default_used = 301318905856   # ~280.6 GB used
-    default_free = default_total - default_used
-
     return {
-        'total': default_total,
-        'used': default_used,
-        'free': default_free,
-        'percent': round((default_used / default_total * 100), 1),
-        'hostname': 'PriyanshPC',
-        'agent_id': 'default_vault',
-        'source': 'system_pc_drives',
+        'total': 0,
+        'used': 0,
+        'free': 0,
+        'percent': 0,
+        'hostname': '',
+        'agent_id': '',
+        'source': 'none',
     }
 
 
