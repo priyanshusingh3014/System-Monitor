@@ -306,40 +306,40 @@ def api_agents(request):
             'is_online': agent.last_seen >= online_threshold if agent.last_seen else False,
         })
 
-    # Dynamic live storage of the host PC/Server running Django/Render link
-    host_total = 0
-    host_used = 0
-    host_free = 0
+    # Calculate vault storage across all drives of enrolled endpoint PC devices
+    total_bytes = 0
+    used_bytes = 0
+    free_bytes = 0
 
-    try:
-        for part in psutil.disk_partitions(all=False):
-            if 'cdrom' in part.opts or not part.device:
-                continue
-            try:
-                usage = psutil.disk_usage(part.mountpoint)
-                host_total += usage.total
-                host_used += usage.used
-                host_free += usage.free
-            except Exception:
-                pass
-    except Exception:
-        pass
+    for agent in agents:
+        if isinstance(agent.drives, list):
+            for d in agent.drives:
+                if isinstance(d, dict):
+                    total_bytes += int(d.get('total', 0) or 0)
+                    used_bytes += int(d.get('used', 0) or 0)
+                    free_bytes += int(d.get('free', 0) or 0)
 
-    if host_total == 0:
+    # Fallback to local server machine storage ONLY if running locally (not on Render cloud)
+    if total_bytes == 0 and not os.environ.get('RENDER'):
         try:
-            root_path = 'C:\\' if os.name == 'nt' else '/'
-            usage = psutil.disk_usage(root_path)
-            host_total = usage.total
-            host_used = usage.used
-            host_free = usage.free
+            for part in psutil.disk_partitions(all=False):
+                if 'cdrom' in part.opts or not part.device:
+                    continue
+                try:
+                    usage = psutil.disk_usage(part.mountpoint)
+                    total_bytes += usage.total
+                    used_bytes += usage.used
+                    free_bytes += usage.free
+                except Exception:
+                    pass
         except Exception:
             pass
 
     server_storage = {
-        'total': host_total,
-        'used': host_used,
-        'free': host_free,
-        'percent': round((host_used / host_total * 100), 1) if host_total > 0 else 0
+        'total': total_bytes,
+        'used': used_bytes,
+        'free': free_bytes,
+        'percent': round((used_bytes / total_bytes * 100), 1) if total_bytes > 0 else 0
     }
 
     host_name = socket.gethostname()
