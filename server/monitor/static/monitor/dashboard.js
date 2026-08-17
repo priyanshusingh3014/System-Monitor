@@ -263,7 +263,7 @@
         const agents = data.agents || [];
         const stats = computeStats(agents);
 
-        setTextIfChanged(activeAgentsValue, `${stats.online}`);
+        setTextIfChanged(activeAgentsValue, `${stats.online} Online`);
 
         const ss = getDashboardVaultStorage(data);
         setTextIfChanged(totalStorageValue, `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`);
@@ -338,16 +338,15 @@
         const stats = computeStats(agents);
 
         // Update stat cards (only if value changed — prevents flicker)
-        const totalText = `${stats.total}`;
-        setTextIfChanged(totalEndpointsValue, totalText);
+        setTextIfChanged(totalEndpointsValue, `${stats.total} Device${stats.total !== 1 ? 's' : ''}`);
         const totalEndpointsCard = document.getElementById('card-total-endpoints');
         if (stats.total === 0) {
             totalEndpointsCard.style.display = 'none';
         } else {
             totalEndpointsCard.style.display = 'block';
         }
-        setTextIfChanged(activeSyncingValue, `${stats.online}`);
-        setTextIfChanged(offlineValue, `${stats.offline}`);
+        setTextIfChanged(activeSyncingValue, `${stats.online} Device${stats.online !== 1 ? 's' : ''}`);
+        setTextIfChanged(offlineValue, `${stats.offline} Device${stats.offline !== 1 ? 's' : ''}`);
 
         // Toggle empty / table
         if (agents.length === 0) {
