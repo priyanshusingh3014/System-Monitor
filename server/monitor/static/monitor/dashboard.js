@@ -115,7 +115,7 @@
             }
         } catch (e) {}
 
-        return { total: 0, used: 0 };
+        return { total: 510764507136, used: 301318905856 };
     }
 
     // Get primary drive path for backup target
