@@ -292,38 +292,49 @@ def summarize_drive_storage(agent):
 
 
 def get_dashboard_vault_storage(request=None, agents_data=None):
-    """Retrieve actual drive storage of the user's PC reported by the agent.
-    Always uses the genuine PC drive metrics (total, used, free) from the enrolled client PC.
+    """Retrieve total vault drive storage across all enrolled endpoint agents.
+    Sums storage deterministically across all enrolled devices so the overview metric
+    remains completely stable and never alternates between devices.
     """
-    # 1. Check in-memory agents_data
-    if agents_data and len(agents_data) > 0:
-        # Prioritize matching client IP or take the first agent PC
-        client_ip = get_client_ip(request) if request else None
-        if client_ip and client_ip not in ('127.0.0.1', '::1'):
-            for agent in agents_data:
-                if client_ip in (agent.get('public_ip'), agent.get('local_ip')):
-                    return summarize_drive_storage(agent)
-        return summarize_drive_storage(agents_data[0])
+    total = 0
+    used = 0
+    free = 0
 
-    # 2. Check latest database agent record if agents_data is empty
-    try:
-        latest_agent = AgentReport.objects.order_by('-last_seen').first()
-        if latest_agent:
-            return summarize_drive_storage({
-                'drives': latest_agent.drives,
-                'hostname': latest_agent.hostname,
-                'agent_id': str(latest_agent.agent_id),
-            })
-    except Exception:
-        pass
+    agents_list = agents_data if (agents_data is not None) else []
+    if not agents_list:
+        try:
+            agents_list = [{'drives': a.drives} for a in AgentReport.objects.all()]
+        except Exception:
+            agents_list = []
+
+    for agent in agents_list:
+        drives = agent.get('drives') or []
+        if isinstance(drives, list):
+            for drive in drives:
+                if isinstance(drive, dict):
+                    d_total = safe_int(drive.get('total'))
+                    d_used = safe_int(drive.get('used'))
+                    d_free = safe_int(drive.get('free'))
+                    if d_free == 0 and d_total >= d_used:
+                        d_free = d_total - d_used
+                    total += d_total
+                    used += d_used
+                    free += d_free
+
+    if total > 0:
+        return {
+            'total': total,
+            'used': used,
+            'free': free,
+            'percent': round((used / total * 100), 1),
+            'source': 'enrolled_vault_storage',
+        }
 
     return {
         'total': 0,
         'used': 0,
         'free': 0,
         'percent': 0,
-        'hostname': '',
-        'agent_id': '',
         'source': 'none',
     }
 

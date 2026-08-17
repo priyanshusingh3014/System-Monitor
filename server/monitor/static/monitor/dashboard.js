@@ -86,16 +86,18 @@
             return data.vault_storage;
         }
 
-        // Check if any agent connected to this dashboard has genuine drives data
+        // Aggregate genuine storage across all enrolled agents
         if (data && data.agents && data.agents.length > 0) {
+            let total = 0;
+            let used = 0;
             for (const agent of data.agents) {
                 if (agent.drives && agent.drives.length > 0) {
-                    const total = agent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
-                    const used = agent.drives.reduce((sum, d) => sum + (d.used || 0), 0);
-                    if (total > 0) {
-                        return { total, used, free: Math.max(0, total - used) };
-                    }
+                    total += agent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
+                    used += agent.drives.reduce((sum, d) => sum + (d.used || 0), 0);
                 }
+            }
+            if (total > 0) {
+                return { total, used, free: Math.max(0, total - used) };
             }
         }
 
