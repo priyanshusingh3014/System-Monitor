@@ -686,7 +686,7 @@ def perform_uninstallation():
 
         # Delete installed files and folder
         app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
-        target_exe = os.path.join(app_dir, 'system_monitor_agent.exe')
+        target_exe = os.path.join(app_dir, 'DriveAgentSetup.exe')
         target_cfg = os.path.join(app_dir, 'config.json')
 
         try:
@@ -742,7 +742,7 @@ def install_to_startup():
             return
 
         app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
-        target_exe = os.path.join(app_dir, 'system_monitor_agent.exe')
+        target_exe = os.path.join(app_dir, 'DriveAgentSetup.exe')
         target_cfg = os.path.join(app_dir, 'config.json')
 
         is_installed_path = (os.path.normpath(current_exe).lower() == os.path.normpath(target_exe).lower())
