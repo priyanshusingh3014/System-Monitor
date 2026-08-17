@@ -292,9 +292,9 @@ def summarize_drive_storage(agent):
 
 
 def get_dashboard_vault_storage(request, agents_data):
-    """Select the PC storage that should power the dashboard overview card.
-    Prioritize the storage from the server machine itself (matching hostname).
-    If not found, fallback to the original IP‑based selection logic.
+    """Select the PC storage that powers the dashboard overview card.
+    Prioritizes matching the PC where the dashboard is opened (by public/local IP or hostname),
+    or falls back to the enrolled PC agent connected through Render.
     """
     if not agents_data:
         return {
@@ -307,7 +307,15 @@ def get_dashboard_vault_storage(request, agents_data):
             'source': 'none',
         }
 
-    # Try to match the server's own hostname (the machine running this Django process)
+    client_ip = get_client_ip(request)
+
+    # 1. Match the PC agent whose public IP or local IP matches the browser request
+    if client_ip and client_ip not in ('127.0.0.1', '::1'):
+        for agent in agents_data:
+            if client_ip in (agent.get('public_ip'), agent.get('local_ip')):
+                return summarize_drive_storage(agent)
+
+    # 2. Match local machine hostname if running on the same host
     try:
         import socket
         server_hostname = socket.gethostname()
@@ -316,24 +324,12 @@ def get_dashboard_vault_storage(request, agents_data):
 
     if server_hostname:
         for agent in agents_data:
-            if agent.get('hostname') == server_hostname:
+            if agent.get('hostname') and agent.get('hostname').lower() == server_hostname.lower():
                 return summarize_drive_storage(agent)
 
-    # Fallback: original IP‑based selection logic
-    client_ip = get_client_ip(request)
-    matching_agents = []
-    if client_ip and client_ip not in ('127.0.0.1', '::1'):
-        matching_agents = [
-            agent for agent in agents_data
-            if client_ip in (agent.get('public_ip'), agent.get('local_ip'))
-        ]
-
-    online_matches = [agent for agent in matching_agents if agent.get('is_online')]
+    # 3. Fallback to the latest enrolled / active PC agent
     online_agents = [agent for agent in agents_data if agent.get('is_online')]
-
-    selected_agent = (
-        (online_matches or matching_agents or online_agents or agents_data)[0]
-    )
+    selected_agent = (online_agents or agents_data)[0]
     return summarize_drive_storage(selected_agent)
 
 
