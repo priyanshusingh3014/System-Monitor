@@ -81,26 +81,12 @@
         return agent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
     }
 
-    // Detect storage quota of the local PC on which the browser is running
-    let localDeviceStorage = null;
-    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
-        navigator.storage.estimate().then(estimate => {
-            if (estimate && estimate.quota && estimate.quota > 0) {
-                localDeviceStorage = {
-                    total: estimate.quota,
-                    used: estimate.usage || Math.round(estimate.quota * 0.45),
-                    free: Math.max(0, estimate.quota - (estimate.usage || 0))
-                };
-            }
-        }).catch(() => {});
-    }
-
     function getDashboardVaultStorage(data) {
         if (data && data.vault_storage && data.vault_storage.total > 0) {
             return data.vault_storage;
         }
 
-        // Check if any agent connected to this dashboard has drives
+        // Check if any agent connected to this dashboard has genuine drives data
         if (data && data.agents && data.agents.length > 0) {
             for (const agent of data.agents) {
                 if (agent.drives && agent.drives.length > 0) {
@@ -111,11 +97,6 @@
                     }
                 }
             }
-        }
-
-        // Use local device storage of the PC running this browser
-        if (localDeviceStorage && localDeviceStorage.total > 0) {
-            return localDeviceStorage;
         }
 
         return { total: 0, used: 0 };
