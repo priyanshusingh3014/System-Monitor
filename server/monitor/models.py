@@ -31,7 +31,7 @@ class AgentReport(models.Model):
     last_seen = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-last_seen']
+        ordering = ['-first_seen', '-id']
 
     def __str__(self):
         return f"{self.hostname} ({self.agent_id})"

@@ -376,7 +376,18 @@
         devicesEmptyState.style.display = 'none';
         devicesTableWrapper.style.display = 'block';
 
-        devicesTbody.innerHTML = agents.map(renderDeviceRow).join('');
+        // Sort deterministically: newest enrolled device always appears on top
+        agents.sort((a, b) => {
+            const timeA = a.first_seen ? new Date(a.first_seen).getTime() : 0;
+            const timeB = b.first_seen ? new Date(b.first_seen).getTime() : 0;
+            if (timeB !== timeA) return timeB - timeA;
+            return (b.hostname || '').localeCompare(a.hostname || '');
+        });
+
+        const newTbodyHtml = agents.map(renderDeviceRow).join('');
+        if (devicesTbody.innerHTML !== newTbodyHtml) {
+            devicesTbody.innerHTML = newTbodyHtml;
+        }
     }
 
     // ============ STORAGE PAGE ============

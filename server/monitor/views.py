@@ -396,7 +396,7 @@ def api_uninstall_agent(request):
 @require_http_methods(["GET"])
 def api_agents(request):
     now = timezone.now()
-    agents = AgentReport.objects.all()
+    agents = AgentReport.objects.all().order_by('-first_seen', '-id')
     # A PC is online while fresh agent heartbeats are arriving. If the PC shuts down,
     # heartbeats stop and it moves offline after this grace window.
     online_threshold = now - timedelta(seconds=ONLINE_TIMEOUT_SECONDS)
