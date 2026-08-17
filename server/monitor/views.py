@@ -291,46 +291,28 @@ def summarize_drive_storage(agent):
     }
 
 
-def get_dashboard_vault_storage(request, agents_data):
-    """Select the PC storage that powers the dashboard overview card.
-    Prioritizes matching the PC where the dashboard is opened (by public/local IP or hostname),
-    or falls back to the enrolled PC agent connected through Render.
+def get_dashboard_vault_storage(request=None, agents_data=None):
+    """Retrieve actual host/server system disk storage of the machine where Render is running.
+    Always displayed on the dashboard regardless of connected client agents.
     """
-    if not agents_data:
+    try:
+        root_path = os.path.abspath(os.sep)
+        total, used, free = shutil.disk_usage(root_path)
+        return {
+            'total': total,
+            'used': used,
+            'free': free,
+            'percent': round((used / total * 100), 1) if total > 0 else 0,
+            'source': 'server_render_host',
+        }
+    except Exception:
         return {
             'total': 0,
             'used': 0,
             'free': 0,
             'percent': 0,
-            'hostname': '',
-            'agent_id': '',
             'source': 'none',
         }
-
-    client_ip = get_client_ip(request)
-
-    # 1. Match the PC agent whose public IP or local IP matches the browser request
-    if client_ip and client_ip not in ('127.0.0.1', '::1'):
-        for agent in agents_data:
-            if client_ip in (agent.get('public_ip'), agent.get('local_ip')):
-                return summarize_drive_storage(agent)
-
-    # 2. Match local machine hostname if running on the same host
-    try:
-        import socket
-        server_hostname = socket.gethostname()
-    except Exception:
-        server_hostname = None
-
-    if server_hostname:
-        for agent in agents_data:
-            if agent.get('hostname') and agent.get('hostname').lower() == server_hostname.lower():
-                return summarize_drive_storage(agent)
-
-    # 3. Fallback to the latest enrolled / active PC agent
-    online_agents = [agent for agent in agents_data if agent.get('is_online')]
-    selected_agent = (online_agents or agents_data)[0]
-    return summarize_drive_storage(selected_agent)
 
 
 @csrf_exempt
