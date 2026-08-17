@@ -44,6 +44,7 @@ class BackupActivity(models.Model):
     data_size = models.CharField(max_length=50, default='-')
     status = models.CharField(max_length=50, default='Success')
     status_type = models.CharField(max_length=20, default='success')  # 'success' or 'failed'
+    hostname = models.CharField(max_length=255, blank=True, default='')
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:

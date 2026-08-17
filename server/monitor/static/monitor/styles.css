@@ -457,6 +457,32 @@ a {
     letter-spacing: -0.01em;
 }
 
+.device-select-box {
+    margin-top: 4px;
+}
+
+.device-filter-dropdown {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-body);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    outline: none;
+    transition: all var(--transition);
+    appearance: auto;
+}
+
+.device-filter-dropdown:hover,
+.device-filter-dropdown:focus {
+    border-color: var(--accent);
+    background: var(--bg-white);
+    box-shadow: 0 0 0 3px rgba(139, 0, 0, 0.1);
+}
+
 /* ============ ACTIVITY SECTION ============ */
 .activity-section {
     background: var(--bg-white);

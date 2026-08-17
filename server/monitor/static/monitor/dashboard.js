@@ -11,14 +11,24 @@
     const POLL_INTERVAL = 500;
     const API_URL = '/api/agents/';
 
+    // ---- State ----
+    let latestData = null;
+    let selectedDeviceFilter = 'all';
+
     // ---- DOM Refs: Dashboard ----
     const activeAgentsValue = document.getElementById('active-agents-value');
     const totalStorageValue = document.getElementById('total-storage-value');
-    const dashboardEnrolledValue = document.getElementById('dashboard-enrolled-value');
+    const deviceFilterSelect = document.getElementById('device-filter-select');
     const emptyState = document.getElementById('empty-state');
     const tableWrapper = document.getElementById('table-wrapper');
     const activitiesTbody = document.getElementById('activities-tbody');
 
+    if (deviceFilterSelect) {
+        deviceFilterSelect.addEventListener('change', function () {
+            selectedDeviceFilter = this.value;
+            if (latestData) updateDashboard(latestData);
+        });
+    }
 
     // ---- DOM Refs: Devices Page ----
     const totalEndpointsValue = document.getElementById('total-endpoints-value');
@@ -36,9 +46,6 @@
     // ---- DOM Refs: Navigation ----
     const navItems = document.querySelectorAll('.nav-item');
     const pageViews = document.querySelectorAll('.page-view');
-
-    // ---- State ----
-    let latestData = null;
 
     // ---- Helpers ----
     function formatBytes(bytes) {
@@ -281,15 +288,56 @@
         const agents = data.agents || [];
         const stats = computeStats(agents);
 
-        setTextIfChanged(activeAgentsValue, `${stats.online} Online`);
+        // Populate device filter dropdown in the 3rd stat card
+        if (deviceFilterSelect) {
+            const currentVal = selectedDeviceFilter;
+            let optionsHtml = '<option value="all">🌐 All Devices</option>';
+            agents.forEach(agent => {
+                const name = agent.hostname || 'Unknown PC';
+                const user = agent.username ? ` (${agent.username})` : '';
+                optionsHtml += `<option value="${name}">🖥️ ${name}${user}</option>`;
+            });
+            if (deviceFilterSelect.innerHTML !== optionsHtml) {
+                deviceFilterSelect.innerHTML = optionsHtml;
+                deviceFilterSelect.value = currentVal;
+                // If previous selection is no longer enrolled, reset to all
+                if (deviceFilterSelect.value !== currentVal) {
+                    selectedDeviceFilter = 'all';
+                    deviceFilterSelect.value = 'all';
+                }
+            }
+        }
 
-        const ss = getDashboardVaultStorage(data);
+        // 1. Storage & Active Agents filtered by selected device
+        let ss;
+        if (selectedDeviceFilter === 'all') {
+            ss = getDashboardVaultStorage(data);
+            setTextIfChanged(activeAgentsValue, `${stats.online} Online`);
+        } else {
+            const selAgent = agents.find(a => a.hostname === selectedDeviceFilter || a.agent_id === selectedDeviceFilter);
+            if (selAgent && selAgent.drives && selAgent.drives.length > 0) {
+                const t = selAgent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
+                const u = selAgent.drives.reduce((sum, d) => sum + (d.used || 0), 0);
+                ss = { total: t, used: u, free: Math.max(0, t - u) };
+            } else {
+                ss = { total: 0, used: 0 };
+            }
+            setTextIfChanged(activeAgentsValue, selAgent && selAgent.is_online ? 'Active' : 'Offline');
+        }
         setTextIfChanged(totalStorageValue, `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`);
-        setTextIfChanged(dashboardEnrolledValue, `${stats.total} Device${stats.total !== 1 ? 's' : ''}`);
 
-        const activities = data.recent_activities || [];
+        // 2. Activities filtered by selected device
+        let activities = data.recent_activities || [];
+        if (selectedDeviceFilter !== 'all') {
+            const filterLow = selectedDeviceFilter.toLowerCase();
+            activities = activities.filter(act => {
+                const actHost = (act.hostname || '').toLowerCase();
+                const actEvent = (act.event || '').toLowerCase();
+                return actHost === filterLow || actEvent.includes(filterLow);
+            });
+        }
 
-        // If no devices are online, show empty state regardless of old activities
+        // If no devices are online or no activities found for selected device
         if (stats.online === 0 || activities.length === 0) {
             if (emptyState) emptyState.style.display = 'flex';
             if (tableWrapper) tableWrapper.style.display = 'none';
@@ -300,7 +348,10 @@
         if (tableWrapper) tableWrapper.style.display = 'block';
 
         if (activitiesTbody) {
-            activitiesTbody.innerHTML = activities.map(renderActivityRow).join('');
+            const newHtml = activities.map(renderActivityRow).join('');
+            if (activitiesTbody.innerHTML !== newHtml) {
+                activitiesTbody.innerHTML = newHtml;
+            }
         }
     }
 

@@ -170,6 +170,8 @@ def send_activity_event(event_name, data_size="0 KB", status="Success", status_t
                 "data_size": data_size,
                 "status": status,
                 "status_type": status_type,
+                "hostname": get_genuine_pc_name(),
+                "agent_id": get_or_create_agent_id(),
             },
             headers={"Content-Type": "application/json"},
             timeout=5,

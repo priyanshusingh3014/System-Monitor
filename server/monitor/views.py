@@ -210,11 +210,13 @@ def api_trigger_activity(request):
     cutoff = now - timedelta(hours=48)
     BackupActivity.objects.filter(timestamp__lt=cutoff).delete()
 
+    hostname = data.get('hostname', '').strip()
     activity = BackupActivity.objects.create(
         event=event_text,
         data_size=data_size,
         status=status,
-        status_type=status_type
+        status_type=status_type,
+        hostname=hostname
     )
 
     # If event indicates uninstallation of the agent, delete matching AgentReport record from DB
@@ -470,6 +472,7 @@ def api_agents(request):
         activities_data.append({
             'id': act.id,
             'event': act.event,
+            'hostname': act.hostname or '',
             'time': format_time_ago(act.timestamp),
             'data_size': act.data_size if (act.data_size and act.data_size != '-') else '0 KB',
             'status': act.status,
