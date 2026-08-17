@@ -81,6 +81,12 @@
         return agent.drives.reduce((sum, d) => sum + (d.total || 0), 0);
     }
 
+    function getDashboardVaultStorage(data) {
+        if (data.vault_storage) return data.vault_storage;
+        if (data.server_storage) return data.server_storage;
+        return { total: 0, used: 0 };
+    }
+
     // Get primary drive path for backup target
     function getBackupPath(agent) {
         if (!agent.drives || agent.drives.length === 0) return '—';
@@ -254,7 +260,7 @@
             activeAgentsValue.textContent = `${stats.online} Online`;
         }
 
-        const ss = data.server_storage || { total: 0, used: 0 };
+        const ss = getDashboardVaultStorage(data);
         if (totalStorageValue) {
             totalStorageValue.textContent = `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`;
         }

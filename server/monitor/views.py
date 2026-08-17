@@ -1,9 +1,7 @@
 import os
 import json
 import shutil
-import socket
 from datetime import timedelta
-import psutil
 
 from django.conf import settings
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
@@ -14,6 +12,8 @@ from django.views.decorators.http import require_http_methods
 
 from .models import AgentReport, BackupActivity, DeletedAgent
 
+
+ONLINE_TIMEOUT_SECONDS = 1
 
 
 def format_time_ago(dt):
@@ -140,6 +140,26 @@ def is_allowed_file_event(event_str):
     return ext.lower() in ALLOWED_USER_EXTENSIONS
 
 
+def is_file_activity(event_str):
+    file_prefixes = ("File Added:", "File Deleted:", "File Renamed:", "File Modified:")
+    return any(event_str.startswith(prefix) for prefix in file_prefixes)
+
+
+def is_dashboard_activity(event_str):
+    """Return True when an activity should be visible in the dashboard feed."""
+    if not event_str:
+        return False
+    if is_file_activity(event_str):
+        return is_allowed_file_event(event_str)
+    allowed_non_file_prefixes = (
+        "App Installed:",
+        "App Uninstalled:",
+        "Agent Enrolled:",
+        "Agent Uninstalled:",
+    )
+    return any(event_str.startswith(prefix) for prefix in allowed_non_file_prefixes)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_trigger_activity(request):
@@ -221,6 +241,96 @@ def get_client_ip(request):
     return ip
 
 
+def safe_int(value):
+    """Convert numeric telemetry values to int without breaking API responses."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def summarize_drive_storage(agent):
+    """Return total/used/free storage for one reported PC agent."""
+    total = 0
+    used = 0
+    free = 0
+
+    drives = agent.get('drives') or []
+    if not isinstance(drives, list):
+        drives = []
+
+    for drive in drives:
+        if not isinstance(drive, dict):
+            continue
+
+        drive_total = safe_int(drive.get('total'))
+        drive_used = safe_int(drive.get('used'))
+        drive_free = safe_int(drive.get('free'))
+
+        if drive_free == 0 and drive_total >= drive_used:
+            drive_free = drive_total - drive_used
+
+        total += drive_total
+        used += drive_used
+        free += drive_free
+
+    return {
+        'total': total,
+        'used': used,
+        'free': free,
+        'percent': round((used / total * 100), 1) if total > 0 else 0,
+        'hostname': agent.get('hostname', ''),
+        'agent_id': agent.get('agent_id', ''),
+        'source': 'agent_pc',
+    }
+
+
+def get_dashboard_vault_storage(request, agents_data):
+    """Select the PC storage that should power the dashboard overview card.
+    Prioritize the storage from the server machine itself (matching hostname).
+    If not found, fallback to the original IP‑based selection logic.
+    """
+    if not agents_data:
+        return {
+            'total': 0,
+            'used': 0,
+            'free': 0,
+            'percent': 0,
+            'hostname': '',
+            'agent_id': '',
+            'source': 'none',
+        }
+
+    # Try to match the server's own hostname (the machine running this Django process)
+    try:
+        import socket
+        server_hostname = socket.gethostname()
+    except Exception:
+        server_hostname = None
+
+    if server_hostname:
+        for agent in agents_data:
+            if agent.get('hostname') == server_hostname:
+                return summarize_drive_storage(agent)
+
+    # Fallback: original IP‑based selection logic
+    client_ip = get_client_ip(request)
+    matching_agents = []
+    if client_ip and client_ip not in ('127.0.0.1', '::1'):
+        matching_agents = [
+            agent for agent in agents_data
+            if client_ip in (agent.get('public_ip'), agent.get('local_ip'))
+        ]
+
+    online_matches = [agent for agent in matching_agents if agent.get('is_online')]
+    online_agents = [agent for agent in agents_data if agent.get('is_online')]
+
+    selected_agent = (
+        (online_matches or matching_agents or online_agents or agents_data)[0]
+    )
+    return summarize_drive_storage(selected_agent)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_uninstall_agent(request):
@@ -281,11 +391,18 @@ def api_uninstall_agent(request):
 def api_agents(request):
     now = timezone.now()
     agents = AgentReport.objects.all()
-    # Device is Online if 1-second heartbeat received within last 4 seconds; Offline if PC shutdown/off
-    online_threshold = now - timedelta(seconds=4)
+    # A PC is online while fresh agent heartbeats are arriving. If the PC shuts down,
+    # heartbeats stop and it moves offline after this grace window.
+    online_threshold = now - timedelta(seconds=ONLINE_TIMEOUT_SECONDS)
 
     agents_data = []
     for agent in agents:
+        seconds_since_seen = None
+        is_online = False
+        if agent.last_seen:
+            seconds_since_seen = max(0, int((now - agent.last_seen).total_seconds()))
+            is_online = agent.last_seen >= online_threshold
+
         agents_data.append({
             'agent_id': str(agent.agent_id),
             'hostname': agent.hostname,
@@ -303,30 +420,12 @@ def api_agents(request):
             'drives': agent.drives,
             'first_seen': agent.first_seen.isoformat() if agent.first_seen else None,
             'last_seen': agent.last_seen.isoformat() if agent.last_seen else None,
-            'is_online': agent.last_seen >= online_threshold if agent.last_seen else False,
+            'seconds_since_seen': seconds_since_seen,
+            'is_online': is_online,
+            'status': 'Online' if is_online else 'Offline',
         })
 
-    # Calculate vault storage strictly across all drives of enrolled endpoint PC devices
-    total_bytes = 0
-    used_bytes = 0
-    free_bytes = 0
-
-    for agent in agents:
-        if isinstance(agent.drives, list):
-            for d in agent.drives:
-                if isinstance(d, dict):
-                    total_bytes += int(d.get('total', 0) or 0)
-                    used_bytes += int(d.get('used', 0) or 0)
-                    free_bytes += int(d.get('free', 0) or 0)
-
-    server_storage = {
-        'total': total_bytes,
-        'used': used_bytes,
-        'free': free_bytes,
-        'percent': round((used_bytes / total_bytes * 100), 1) if total_bytes > 0 else 0
-    }
-
-    host_name = socket.gethostname()
+    vault_storage = get_dashboard_vault_storage(request, agents_data)
 
     # 48-Hour Retention Window: Delete activities older than 48 hours automatically
     cutoff_time = now - timedelta(hours=48)
@@ -343,22 +442,22 @@ def api_agents(request):
     BackupActivity.objects.filter(event__icontains="{").delete()
 
     # Query DB activities from the last 48 hours (newest first)
-    allowed_prefixes = ("File Added:", "File Deleted:", "File Renamed:", "File Modified:")
     all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).order_by('-id')
     
     db_activities = []
     seen_recent_targets = {}
     for act in all_activities:
-        if any(act.event.startswith(p) for p in allowed_prefixes):
-            if not is_allowed_file_event(act.event):
-                continue
-            t_key = get_target_key(act.event)
-            # Deduplicate items for the same target key occurring within 5 seconds of each other
-            if t_key not in seen_recent_targets or abs((seen_recent_targets[t_key] - act.timestamp).total_seconds()) > 5:
-                seen_recent_targets[t_key] = act.timestamp
-                db_activities.append(act)
-            if len(db_activities) >= 50:
-                break
+        if not is_dashboard_activity(act.event):
+            continue
+
+        t_key = get_target_key(act.event)
+        if t_key in seen_recent_targets and abs((seen_recent_targets[t_key] - act.timestamp).total_seconds()) <= 5:
+            continue
+
+        seen_recent_targets[t_key] = act.timestamp
+        db_activities.append(act)
+        if len(db_activities) >= 50:
+            break
 
     activities_data = []
     for act in db_activities:
@@ -375,9 +474,12 @@ def api_agents(request):
         'agents': agents_data,
         'total': len(agents_data),
         'online': sum(1 for a in agents_data if a['is_online']),
+        'offline': sum(1 for a in agents_data if not a['is_online']),
+        'online_timeout_seconds': ONLINE_TIMEOUT_SECONDS,
         'server_time': now.isoformat(),
-        'server_storage': server_storage,
-        'server_hostname': host_name,
+        'vault_storage': vault_storage,
+        'server_storage': vault_storage,
+        'server_hostname': vault_storage.get('hostname', ''),
         'recent_activities': activities_data,
     })
 
@@ -423,4 +525,3 @@ def api_delete_agent(request, agent_id):
         return JsonResponse({'status': 'ok', 'message': 'Agent deleted successfully.'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-

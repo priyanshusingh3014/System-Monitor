@@ -48,28 +48,36 @@ def get_config_file_path():
     return os.path.join(script_dir, "config.json")
 
 
-DEFAULT_BASE_URL = "https://system-monitor-s3q7.onrender.com"
-
 def get_base_url():
-    if os.environ.get("SERVER_BASE_URL"):
-        return os.environ.get("SERVER_BASE_URL").rstrip("/")
+    env_url = os.environ.get("SERVER_BASE_URL", "").strip()
+    if env_url:
+        return env_url.rstrip("/")
+
     c_path = get_config_file_path()
     if os.path.exists(c_path):
         try:
             with open(c_path, "r") as f:
                 c = json.load(f)
-                url = c.get("server_url")
-                if url and "localhost" not in url and "127.0.0.1" not in url:
+                url = str(c.get("server_url", "")).strip()
+                if url:
                     return url.rstrip("/")
         except Exception:
             pass
-    return DEFAULT_BASE_URL
+
+    raise RuntimeError(
+        "Server URL is not configured. Set SERVER_BASE_URL or add config.json with server_url."
+    )
 
 BASE_URL = get_base_url()
 SERVER_URL = f"{BASE_URL}/api/report/"
 ACTIVITY_URL = f"{BASE_URL}/api/activities/create/"
 REPORT_INTERVAL = 1.0  # seconds (1 second heartbeat)
+PUBLIC_IP_REFRESH_SECONDS = 300
+PUBLIC_IP_RETRY_SECONDS = 60
 AGENT_ID_FILE = os.path.join(os.path.expanduser("~"), ".system_monitor_agent_id")
+
+public_ip_cache = None
+public_ip_last_checked_at = 0
 
 ALLOWED_USER_EXTENSIONS = {
     # Documents & Text
@@ -94,7 +102,7 @@ IGNORED_PATTERNS = [
     '$Recycle.Bin', '$RECYCLE.BIN', '__pycache__', '.venv', 'venv', 'node_modules',
     '.git', '.gemini', '.antigravity', 'CacheStorage', 'GPUCache', 'IndexedDB',
     'prefetch', 'temp', 'tmp', 'crashdumps', 'logs', 'telemetry', 'diagnostics',
-    'screenshot', 'screenshots', 'onedrive', 'build', 'dist', 'scratch',
+    'screenshot', 'screenshots', 'build', 'dist', 'scratch',
     'site-packages', 'pyinstaller', 'whatsapp', 'my agent', 'client_installer'
 ]
 
@@ -357,11 +365,23 @@ def start_client_fs_monitor():
 
 
 def get_public_ip():
+    global public_ip_cache, public_ip_last_checked_at
+
+    now = time.time()
+    retry_after = PUBLIC_IP_REFRESH_SECONDS if public_ip_cache else PUBLIC_IP_RETRY_SECONDS
+    if now - public_ip_last_checked_at < retry_after:
+        return public_ip_cache
+
+    public_ip_last_checked_at = now
     try:
-        resp = requests.get("https://api.ipify.org?format=json", timeout=5)
-        return resp.json().get("ip")
+        resp = requests.get("https://api.ipify.org?format=json", timeout=2)
+        ip = resp.json().get("ip")
+        if ip:
+            public_ip_cache = ip
     except Exception:
-        return None
+        pass
+
+    return public_ip_cache
 
 
 def get_local_ip():

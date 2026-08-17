@@ -34,7 +34,7 @@ IGNORED_PATTERNS = [
     '$Recycle.Bin', '$RECYCLE.BIN', '__pycache__', '.venv', 'venv', 'node_modules',
     '.git', '.gemini', '.antigravity', 'CacheStorage', 'GPUCache', 'IndexedDB',
     'prefetch', 'temp', 'tmp', 'crashdumps', 'logs', 'telemetry', 'diagnostics',
-    'screenshot', 'screenshots', 'onedrive', 'build', 'dist', 'scratch',
+    'screenshot', 'screenshots', 'build', 'dist', 'scratch',
     'site-packages', 'pyinstaller', 'whatsapp', 'my agent', 'client_installer'
 ]
 
@@ -79,7 +79,7 @@ def format_size(num_bytes):
 
 
 def get_display_name(path):
-    """Return filename with drive letter for context e.g. myfile.txt (D:\)"""
+    """Return filename with drive letter for context e.g. myfile.txt (D:\\)"""
     drive, _ = os.path.splitdrive(path)
     filename = os.path.basename(path)
     if drive:
@@ -197,7 +197,7 @@ class LocalFileSystemHandler(FileSystemEventHandler):
 
 
 def detect_all_drives():
-    """Detect all fixed disk drive roots (C:\, D:\, etc.) and user folders."""
+    """Detect all fixed disk drive roots (C:\\, D:\\, etc.) and user folders."""
     dirs = []
 
     # 1. User folders
