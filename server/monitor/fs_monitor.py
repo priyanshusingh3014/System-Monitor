@@ -133,6 +133,10 @@ class LocalFileSystemHandler(FileSystemEventHandler):
     def on_modified(self, event):
         if event.is_directory or is_ignored(event.src_path):
             return
+        _, ext = os.path.splitext(event.src_path.lower())
+        # Images, media, and archives are modified automatically by OS background indexing; ignore on_modified
+        if ext in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.tiff', '.psd', '.ai', '.raw', '.heic', '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.zip', '.rar', '.7z', '.tar', '.gz', '.iso'}:
+            return
         try:
             new_size = os.path.getsize(event.src_path)
             old_size = self.file_sizes.get(event.src_path)
