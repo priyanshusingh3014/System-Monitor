@@ -252,18 +252,21 @@
         `;
     }
 
+    // Only update DOM text if value has actually changed (prevents flicker)
+    function setTextIfChanged(el, newText) {
+        if (el && el.textContent !== newText) {
+            el.textContent = newText;
+        }
+    }
+
     function updateDashboard(data) {
         const agents = data.agents || [];
         const stats = computeStats(agents);
 
-        if (activeAgentsValue) {
-            activeAgentsValue.textContent = `${stats.online} Online`;
-        }
+        setTextIfChanged(activeAgentsValue, `${stats.online}`);
 
         const ss = getDashboardVaultStorage(data);
-        if (totalStorageValue) {
-            totalStorageValue.textContent = `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`;
-        }
+        setTextIfChanged(totalStorageValue, `${formatBytesShort(ss.used)} / ${formatBytesShort(ss.total)}`);
 
         const activities = data.recent_activities || [];
 
@@ -334,10 +337,17 @@
         const agents = data.agents || [];
         const stats = computeStats(agents);
 
-        // Update stat cards
-        totalEndpointsValue.textContent = `${stats.total} Device${stats.total !== 1 ? 's' : ''}`;
-        activeSyncingValue.textContent = `${stats.online} Device${stats.online !== 1 ? 's' : ''}`;
-        offlineValue.textContent = `${stats.offline} Device${stats.offline !== 1 ? 's' : ''}`;
+        // Update stat cards (only if value changed — prevents flicker)
+        const totalText = `${stats.total}`;
+        setTextIfChanged(totalEndpointsValue, totalText);
+        const totalEndpointsCard = document.getElementById('card-total-endpoints');
+        if (stats.total === 0) {
+            totalEndpointsCard.style.display = 'none';
+        } else {
+            totalEndpointsCard.style.display = 'block';
+        }
+        setTextIfChanged(activeSyncingValue, `${stats.online}`);
+        setTextIfChanged(offlineValue, `${stats.offline}`);
 
         // Toggle empty / table
         if (agents.length === 0) {

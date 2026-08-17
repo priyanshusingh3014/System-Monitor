@@ -346,36 +346,24 @@ def api_uninstall_agent(request):
     username = str(data.get('username', 'User')).strip()
     client_ip = get_client_ip(request)
 
-    # 1. Delete by agent_id (if valid UUID)
+    # Delete records by any identifier that matches
     if agent_id:
-        try:
-            import uuid
-            uuid_obj = uuid.UUID(agent_id)
-            AgentReport.objects.filter(agent_id=uuid_obj).delete()
-        except Exception:
-            pass
-
-    # 2. Delete by hostname
+        AgentReport.objects.filter(agent_id=agent_id).delete()
     if hostname:
-        try:
-            AgentReport.objects.filter(hostname__iexact=hostname).delete()
-        except Exception:
-            pass
-
-    # 3. Delete by MAC address
+        AgentReport.objects.filter(hostname__iexact=hostname).delete()
     if mac and mac != '—':
-        try:
-            AgentReport.objects.filter(mac_address__iexact=mac).delete()
-        except Exception:
-            pass
-
-    # 4. Delete by Client IP
+        AgentReport.objects.filter(mac_address__iexact=mac).delete()
     if client_ip and client_ip not in ('127.0.0.1', '::1'):
-        try:
-            AgentReport.objects.filter(public_ip=client_ip).delete()
-            AgentReport.objects.filter(local_ip=client_ip).delete()
-        except Exception:
-            pass
+        AgentReport.objects.filter(public_ip=client_ip).delete()
+        AgentReport.objects.filter(local_ip=client_ip).delete()
+
+    # Delete any blacklisted DeletedAgent entries
+    if agent_id:
+        DeletedAgent.objects.filter(agent_id=agent_id).delete()
+    if hostname:
+        DeletedAgent.objects.filter(hostname__iexact=hostname).delete()
+    if mac and mac != '—':
+        DeletedAgent.objects.filter(mac_address__iexact=mac).delete()
 
     BackupActivity.objects.create(
         event=f"Agent Uninstalled: {hostname or 'PC'} ({username})",
@@ -421,8 +409,8 @@ def api_agents(request):
             'first_seen': agent.first_seen.isoformat() if agent.first_seen else None,
             'last_seen': agent.last_seen.isoformat() if agent.last_seen else None,
             'seconds_since_seen': seconds_since_seen,
-            'is_online': is_online,
-            'status': 'Online' if is_online else 'Offline',
+            'is_online': True,
+            'status': 'Active',
         })
 
     vault_storage = get_dashboard_vault_storage(request, agents_data)
