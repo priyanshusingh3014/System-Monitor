@@ -50,19 +50,11 @@ def api_report(request):
 
     mac = str(data.get('mac_address', '')).strip()
 
-    # Check if this agent (by agent_id or physical mac_address) has been deleted by admin
-    is_blacklisted = DeletedAgent.objects.filter(agent_id=agent_id).exists()
-    if not is_blacklisted and mac and mac != '—':
-        is_blacklisted = DeletedAgent.objects.filter(mac_address=mac).exists()
-
-    if is_blacklisted:
-        if data.get('is_fresh_installer_run'):
-            # User manually ran DriveAgentSetup.exe installer again -> un-blacklist cleanly
-            DeletedAgent.objects.filter(agent_id=agent_id).delete()
-            if mac and mac != '—':
-                DeletedAgent.objects.filter(mac_address=mac).delete()
-        else:
-            return JsonResponse({'status': 'stopped', 'message': 'Agent deleted by admin.'}, status=403)
+    # Clear any old deletion blacklist entry so newly installed agents register seamlessly
+    DeletedAgent.objects.filter(agent_id=agent_id).delete()
+    if mac and mac != '—':
+        DeletedAgent.objects.filter(mac_address=mac).delete()
+        DeletedAgent.objects.filter(agent_id=f"mac_{mac}").delete()
 
     # Prevent duplicates: if a record with the same MAC already exists under a different agent_id, remove it
     if mac and mac != '—':
