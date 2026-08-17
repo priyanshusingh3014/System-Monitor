@@ -615,27 +615,46 @@ def perform_uninstallation():
         return
 
     try:
-        # Notify server to remove registered endpoint device completely
+        # Collect identifiers BEFORE deleting anything
+        agent_id = None
         try:
-            agent_id = get_or_create_agent_id()
-            pc_name = get_genuine_pc_name()
-            user_name = get_genuine_user_name()
-            mac_addr = get_mac_address()
-            uninst_url = f"{BASE_URL}/api/agents/uninstall/"
-            requests.post(
-                uninst_url,
-                json={
-                    "agent_id": agent_id,
-                    "hostname": pc_name,
-                    "username": user_name,
-                    "mac_address": mac_addr
-                },
-                headers={"Content-Type": "application/json"},
-                timeout=5
-            )
-            send_activity_event(f"App Uninstalled: System Drive Agent ({pc_name})", "0 KB")
-        except Exception as e:
-            print(f"[UNINSTALL REPORT NOTICE] {e}")
+            if os.path.exists(AGENT_ID_FILE):
+                with open(AGENT_ID_FILE, "r") as f:
+                    agent_id = f.read().strip()
+        except Exception:
+            pass
+        if not agent_id:
+            agent_id = str(uuid.uuid4())  # fallback so server call doesn't fail
+
+        pc_name = get_genuine_pc_name()
+        user_name = get_genuine_user_name()
+        mac_addr = get_mac_address()
+
+        # Notify server to remove registered endpoint device — retry up to 3 times
+        uninst_url = f"{BASE_URL}/api/agents/uninstall/"
+        server_notified = False
+        for attempt in range(3):
+            try:
+                resp = requests.post(
+                    uninst_url,
+                    json={
+                        "agent_id": agent_id,
+                        "hostname": pc_name,
+                        "username": user_name,
+                        "mac_address": mac_addr
+                    },
+                    headers={"Content-Type": "application/json"},
+                    timeout=10
+                )
+                if resp.status_code in (200, 201):
+                    server_notified = True
+                    break
+            except Exception as e:
+                print(f"[UNINSTALL] Server notify attempt {attempt+1} failed: {e}")
+                time.sleep(1)
+
+        if not server_notified:
+            print("[UNINSTALL] WARNING: Could not notify server. Device may remain on dashboard.")
 
         import winreg, subprocess
         kill_running_agent()
