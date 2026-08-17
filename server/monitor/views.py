@@ -306,7 +306,7 @@ def api_agents(request):
             'is_online': agent.last_seen >= online_threshold if agent.last_seen else False,
         })
 
-    # Calculate vault storage across all drives of enrolled endpoint PC devices
+    # Calculate vault storage strictly across all drives of enrolled endpoint PC devices
     total_bytes = 0
     used_bytes = 0
     free_bytes = 0
@@ -318,22 +318,6 @@ def api_agents(request):
                     total_bytes += int(d.get('total', 0) or 0)
                     used_bytes += int(d.get('used', 0) or 0)
                     free_bytes += int(d.get('free', 0) or 0)
-
-    # Fallback to local server machine storage ONLY if running locally (not on Render cloud)
-    if total_bytes == 0 and not os.environ.get('RENDER'):
-        try:
-            for part in psutil.disk_partitions(all=False):
-                if 'cdrom' in part.opts or not part.device:
-                    continue
-                try:
-                    usage = psutil.disk_usage(part.mountpoint)
-                    total_bytes += usage.total
-                    used_bytes += usage.used
-                    free_bytes += usage.free
-                except Exception:
-                    pass
-        except Exception:
-            pass
 
     server_storage = {
         'total': total_bytes,
