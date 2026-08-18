@@ -455,20 +455,24 @@ def api_agents(request):
 
     vault_storage = get_dashboard_vault_storage(request, agents_data)
 
-    # 24-Hour Retention Window: Delete activities older than 24 hours automatically
+    # 24-Hour Retention Window: Delete stale and noisy activities in ONE query
     cutoff_time = now - timedelta(hours=24)
-    BackupActivity.objects.filter(timestamp__lt=cutoff_time).delete()
-    BackupActivity.objects.filter(event__icontains="Backup Complete").delete()
-    BackupActivity.objects.filter(event__icontains="test").delete()
-    BackupActivity.objects.filter(event__icontains="Screenshot").delete()
-    BackupActivity.objects.filter(event__icontains="xref-").delete()
-    BackupActivity.objects.filter(event__icontains="warn-").delete()
-    BackupActivity.objects.filter(event__icontains="base_library").delete()
-    BackupActivity.objects.filter(event__icontains="agent_client.py").delete()
-    BackupActivity.objects.filter(event__icontains="dashboard.js").delete()
-    BackupActivity.objects.filter(event__icontains="WhatsApp").delete()
-    BackupActivity.objects.filter(event__icontains="{").delete()
-    BackupActivity.objects.filter(hostname='').delete()
+    from django.db.models import Q
+    noise_filter = (
+        Q(timestamp__lt=cutoff_time) |
+        Q(event__icontains="Backup Complete") |
+        Q(event__icontains="test") |
+        Q(event__icontains="Screenshot") |
+        Q(event__icontains="xref-") |
+        Q(event__icontains="warn-") |
+        Q(event__icontains="base_library") |
+        Q(event__icontains="agent_client.py") |
+        Q(event__icontains="dashboard.js") |
+        Q(event__icontains="WhatsApp") |
+        Q(event__icontains="{") |
+        Q(hostname='')
+    )
+    BackupActivity.objects.filter(noise_filter).delete()
 
     # Query DB activities from the last 24 hours (newest first)
     all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).exclude(hostname='').order_by('-id')
