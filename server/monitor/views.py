@@ -209,8 +209,8 @@ def api_trigger_activity(request):
                 }
             })
 
-    # Auto-prune activities older than 48 hours
-    cutoff = now - timedelta(hours=48)
+    # Auto-prune activities older than 24 hours
+    cutoff = now - timedelta(hours=24)
     BackupActivity.objects.filter(timestamp__lt=cutoff).delete()
 
     hostname = data.get('hostname', '').strip()
@@ -455,8 +455,8 @@ def api_agents(request):
 
     vault_storage = get_dashboard_vault_storage(request, agents_data)
 
-    # 48-Hour Retention Window: Delete activities older than 48 hours automatically
-    cutoff_time = now - timedelta(hours=48)
+    # 24-Hour Retention Window: Delete activities older than 24 hours automatically
+    cutoff_time = now - timedelta(hours=24)
     BackupActivity.objects.filter(timestamp__lt=cutoff_time).delete()
     BackupActivity.objects.filter(event__icontains="Backup Complete").delete()
     BackupActivity.objects.filter(event__icontains="test").delete()
@@ -470,7 +470,7 @@ def api_agents(request):
     BackupActivity.objects.filter(event__icontains="{").delete()
     BackupActivity.objects.filter(hostname='').delete()
 
-    # Query DB activities from the last 48 hours (newest first)
+    # Query DB activities from the last 24 hours (newest first)
     all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).exclude(hostname='').order_by('-id')
     
     db_activities = []
