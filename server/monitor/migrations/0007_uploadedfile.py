@@ -11,6 +11,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunSQL(
+            sql="DROP TABLE IF EXISTS monitor_uploadedfile;",
+            reverse_sql=""
+        ),
         migrations.CreateModel(
             name='UploadedFile',
             fields=[
