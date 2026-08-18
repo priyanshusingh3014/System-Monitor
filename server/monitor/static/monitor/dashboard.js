@@ -341,7 +341,18 @@
 
         // If no devices are online or no activities found for selected device
         if (stats.online === 0 || activities.length === 0) {
-            if (emptyState) emptyState.style.display = 'flex';
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+                const emptyHint = emptyState.querySelector('.empty-hint');
+                const emptyText = emptyState.querySelector('.empty-text');
+                if (stats.online > 0) {
+                    if (emptyText) emptyText.textContent = 'No file changes detected yet.';
+                    if (emptyHint) emptyHint.innerHTML = 'Monitoring file system in the background.';
+                } else {
+                    if (emptyText) emptyText.textContent = 'No activity recorded yet.';
+                    if (emptyHint) emptyHint.innerHTML = 'Run <code>agent_client.exe</code> on any machine to start monitoring.';
+                }
+            }
             if (tableWrapper) tableWrapper.style.display = 'none';
             return;
         }

@@ -97,7 +97,8 @@ def api_report(request):
             event=f"App Installed: System Drive Agent",
             data_size="0 KB",
             status="Success",
-            status_type="success"
+            status_type="success",
+            hostname=agent.hostname
         )
 
     status_code = 201 if created else 200
@@ -407,7 +408,8 @@ def api_uninstall_agent(request):
         event=f"App Uninstalled: System Drive Agent",
         data_size="0 KB",
         status="Success",
-        status_type="success"
+        status_type="success",
+        hostname=hostname
     )
 
     return JsonResponse({'status': 'ok', 'message': 'Agent uninstalled and removed from registered devices'})

@@ -560,53 +560,24 @@ def show_message_box(title, text, style=0):
     return 0
 
 
-UNINSTALL_PASSWORD = "Hans@123"
-
-
-def prompt_uninstall_password():
-    """Show a password input dialog via VBScript InputBox. Returns True if correct password entered."""
-    if os.name != 'nt':
-        return False
-    try:
-        import subprocess, tempfile
-        # Create a temporary VBScript that shows an InputBox
-        vbs_code = 'Dim pw\npw = InputBox("Enter the admin password to uninstall System Drive Agent:", "Uninstall Password Required")\nIf IsEmpty(pw) Then\n  WScript.Echo "CANCELLED"\nElse\n  WScript.Echo pw\nEnd If'
-        vbs_path = os.path.join(tempfile.gettempdir(), "_sda_pw_prompt.vbs")
-        with open(vbs_path, "w") as f:
-            f.write(vbs_code)
-        result = subprocess.run(
-            ['cscript', '//Nologo', vbs_path],
-            capture_output=True, text=True, timeout=120
-        )
-        try:
-            os.remove(vbs_path)
-        except Exception:
-            pass
-        entered = result.stdout.strip()
-        if entered == "CANCELLED" or not entered:
-            return False
-        if entered == UNINSTALL_PASSWORD:
-            return True
-        else:
-            show_message_box(
-                "Incorrect Password",
-                "The password you entered is incorrect. Uninstall cancelled.",
-                0x00000010  # MB_ICONERROR
-            )
-            return False
-    except Exception:
-        return False
-
-
 def kill_running_agent():
     """Kill any running system_monitor_agent or agent_client process so cleanup succeeds."""
     if os.name != 'nt':
         return
     try:
-        import subprocess
-        for exe_name in ['system_monitor_agent.exe', 'agent_client.exe', 'DriveAgentSetup.exe']:
-            subprocess.run(['taskkill', '/F', '/IM', exe_name, '/T'],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        import psutil, os, time
+        current_proc = psutil.Process(os.getpid())
+        parent_pid = current_proc.ppid()
+        current_pid = current_proc.pid
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                name = proc.info.get('name')
+                pid = proc.info['pid']
+                if name and name.lower() in ['system_monitor_agent.exe', 'agent_client.exe', 'driveagentsetup.exe']:
+                    if pid != current_pid and pid != parent_pid:
+                        proc.kill()
+            except Exception:
+                pass
         time.sleep(0.5)
     except Exception:
         pass
@@ -724,7 +695,7 @@ def perform_uninstallation():
 
         # Delete installed files and folder
         app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
-        target_exe = os.path.join(app_dir, 'DriveAgentSetup.exe')
+        target_exe = os.path.join(app_dir, 'system_monitor_agent.exe')
         target_cfg = os.path.join(app_dir, 'config.json')
 
         try:
@@ -762,8 +733,7 @@ def handle_uninstall():
     )
 
     if res == 6:  # IDYES = 6
-        if prompt_uninstall_password():
-            perform_uninstallation()
+        perform_uninstallation()
 
     sys.exit(0)
     return True
@@ -781,7 +751,7 @@ def install_to_startup():
             return
 
         app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
-        target_exe = os.path.join(app_dir, 'DriveAgentSetup.exe')
+        target_exe = os.path.join(app_dir, 'system_monitor_agent.exe')
         target_cfg = os.path.join(app_dir, 'config.json')
 
         is_installed_path = (os.path.normpath(current_exe).lower() == os.path.normpath(target_exe).lower())
@@ -798,8 +768,7 @@ def install_to_startup():
                         0x00000004 | 0x00000020  # Yes / No
                     )
                     if res == 6:  # IDYES -> User wants to UNINSTALL
-                        if prompt_uninstall_password():
-                            perform_uninstallation()
+                        perform_uninstallation()
                     sys.exit(0)
                 else:
                     # Not installed yet! Ask user if they want to INSTALL
