@@ -43,6 +43,16 @@
     const storageTableWrapper = document.getElementById('storage-table-wrapper');
     const storageTbody = document.getElementById('storage-tbody');
 
+    // ---- DOM Refs: Files Page ----
+    const totalFilesValue = document.getElementById('total-files-value');
+    const filesStorageValue = document.getElementById('files-storage-value');
+    const filesDeviceSelect = document.getElementById('files-device-select');
+    const filesSearchInput = document.getElementById('files-search-input');
+    const filesEmptyState = document.getElementById('files-empty-state');
+    const filesTableWrapper = document.getElementById('files-table-wrapper');
+    const filesTbody = document.getElementById('files-tbody');
+    const btnRefreshFiles = document.getElementById('btn-refresh-files');
+
     // ---- DOM Refs: Navigation ----
     const navItems = document.querySelectorAll('.nav-item');
     const pageViews = document.querySelectorAll('.page-view');
@@ -154,8 +164,8 @@
     const pageMap = {
         'nav-dashboard': 'page-dashboard',
         'nav-devices': 'page-devices',
-        'nav-backup-jobs': 'page-backup-jobs',
         'nav-storage': 'page-storage',
+        'nav-files': 'page-files',
         'nav-recovery': 'page-recovery',
         'nav-security': 'page-security',
         'nav-logs': 'page-logs',
@@ -254,6 +264,7 @@
             if (pageId === 'page-dashboard') updateDashboard(latestData);
             if (pageId === 'page-devices') updateDevicesPage(latestData);
             if (pageId === 'page-storage') updateStoragePage(latestData);
+            if (pageId === 'page-files') updateFilesPage(latestData);
         }
     });
 
@@ -550,6 +561,139 @@
         }
     }
 
+    // ============ FILES PAGE ============
+
+    let selectedFilesDevice = 'all';
+    let filesSearchQuery = '';
+
+    if (filesDeviceSelect) {
+        filesDeviceSelect.addEventListener('change', function () {
+            selectedFilesDevice = this.value;
+            if (latestData) updateFilesPage(latestData);
+        });
+    }
+
+    if (filesSearchInput) {
+        let searchTimeout;
+        filesSearchInput.addEventListener('input', function () {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                filesSearchQuery = this.value.trim();
+                if (latestData) updateFilesPage(latestData);
+            }, 300);
+        });
+    }
+
+    if (btnRefreshFiles) {
+        btnRefreshFiles.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (latestData) updateFilesPage(latestData);
+        });
+    }
+
+    function getFileIcon(ext) {
+        ext = (ext || '').toLowerCase();
+        if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'].includes(ext)) return '📷';
+        if (['.pdf'].includes(ext)) return '📄';
+        if (['.doc', '.docx', '.txt', '.rtf', '.odt'].includes(ext)) return '📝';
+        if (['.xls', '.xlsx', '.csv'].includes(ext)) return '📊';
+        if (['.zip', '.rar', '.7z', '.tar', '.gz'].includes(ext)) return '🗜️';
+        if (['.mp4', '.avi', '.mov', '.mkv'].includes(ext)) return '🎬';
+        if (['.mp3', '.wav', '.flac'].includes(ext)) return '🎵';
+        return '📁';
+    }
+
+    function renderFileRow(f) {
+        const isDeleted = f.is_deleted_on_client;
+        const badge = isDeleted
+            ? `<span class="badge-deleted-pc">⚠️ Deleted from PC (Cloud Intact)</span>`
+            : `<span class="badge-active-pc">● Active on PC</span>`;
+
+        return `
+            <tr>
+                <td>
+                    <div style="display:flex; align-items:center;">
+                        <span class="file-icon-badge">${getFileIcon(f.file_extension)}</span>
+                        <div>
+                            <strong style="color: var(--text-primary); font-size: 0.88rem;">${f.file_name}</strong>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${f.file_extension ? f.file_extension.toUpperCase() + ' File' : 'File'}</div>
+                        </div>
+                    </div>
+                </td>
+                <td><span style="font-weight:600; color: var(--text-primary);">${f.hostname}</span></td>
+                <td><code style="font-size: 0.78rem; background: rgba(0,0,0,0.04); padding: 2px 6px; border-radius: 4px; color: var(--accent);">${f.file_path}</code></td>
+                <td><strong style="color: var(--text-primary);">${formatBytes(f.file_size)}</strong></td>
+                <td>${badge}</td>
+                <td style="color: var(--text-muted); font-size: 0.82rem;">${timeAgo(f.uploaded_at)}</td>
+                <td>
+                    <a href="/api/files/download/${f.id}/" class="btn-download-file" target="_blank" download>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download
+                    </a>
+                </td>
+            </tr>
+        `;
+    }
+
+    async function updateFilesPage(data) {
+        const agents = (data && data.agents) ? data.agents : [];
+
+        // Update filesDeviceSelect options
+        if (filesDeviceSelect) {
+            const currentVal = filesDeviceSelect.value;
+            let optionsHtml = '<option value="all">All Devices</option>';
+            agents.forEach(a => {
+                const h = a.hostname || 'Unknown';
+                optionsHtml += `<option value="${h}">${h}</option>`;
+            });
+            if (filesDeviceSelect.innerHTML !== optionsHtml) {
+                filesDeviceSelect.innerHTML = optionsHtml;
+                filesDeviceSelect.value = currentVal;
+            }
+        }
+
+        // Fetch files from API
+        try {
+            let url = `/api/files/?hostname=${encodeURIComponent(selectedFilesDevice)}`;
+            if (filesSearchQuery) {
+                url += `&search=${encodeURIComponent(filesSearchQuery)}`;
+            }
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const filesRes = await res.json();
+            const files = filesRes.files || [];
+
+            // Compute total size
+            const totalBytes = files.reduce((sum, f) => sum + (f.file_size || 0), 0);
+
+            setTextIfChanged(totalFilesValue, `${files.length} File${files.length !== 1 ? 's' : ''}`);
+            setTextIfChanged(filesStorageValue, formatBytes(totalBytes));
+
+            if (files.length === 0) {
+                if (filesEmptyState) filesEmptyState.style.display = 'flex';
+                if (filesTableWrapper) filesTableWrapper.style.display = 'none';
+                return;
+            }
+
+            if (filesEmptyState) filesEmptyState.style.display = 'none';
+            if (filesTableWrapper) filesTableWrapper.style.display = 'block';
+
+            if (filesTbody) {
+                const newHtml = files.map(renderFileRow).join('');
+                if (filesTbody.innerHTML !== newHtml) {
+                    filesTbody.innerHTML = newHtml;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load files:', err);
+        }
+    }
+
     // ============ POLLING ============
 
     async function fetchAgents() {
@@ -565,6 +709,7 @@
                 if (activePage.id === 'page-dashboard') updateDashboard(data);
                 if (activePage.id === 'page-devices') updateDevicesPage(data);
                 if (activePage.id === 'page-storage') updateStoragePage(data);
+                if (activePage.id === 'page-files') updateFilesPage(data);
             } else {
                 updateDashboard(data);
             }

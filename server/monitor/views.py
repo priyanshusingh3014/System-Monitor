@@ -10,7 +10,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import AgentReport, BackupActivity, DeletedAgent
+from .models import AgentReport, BackupActivity, DeletedAgent, UploadedFile
+import base64
+import mimetypes
 
 
 ONLINE_TIMEOUT_SECONDS = 15
@@ -561,3 +563,124 @@ def api_delete_agent(request, agent_id):
         return JsonResponse({'status': 'ok', 'message': 'Agent deleted successfully.'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_file_upload(request):
+    """Receive a file upload from an agent client."""
+    try:
+        hostname = request.POST.get('hostname', '').strip()
+        agent_id = request.POST.get('agent_id', '').strip()
+        file_path = request.POST.get('file_path', '').strip()
+        drive_letter = request.POST.get('drive_letter', '').strip()
+
+        if not hostname or not file_path:
+            return JsonResponse({'error': 'Missing hostname or file_path'}, status=400)
+
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return JsonResponse({'error': 'No file attached'}, status=400)
+
+        file_name = os.path.basename(file_path)
+        file_extension = os.path.splitext(file_name)[1].lower()
+        file_content = uploaded_file.read()
+        file_size = len(file_content)
+
+        # Find the agent record if possible
+        agent = None
+        if agent_id:
+            agent = AgentReport.objects.filter(agent_id=agent_id).first()
+
+        # Create or update the file record
+        obj, created = UploadedFile.objects.update_or_create(
+            hostname=hostname,
+            file_path=file_path,
+            defaults={
+                'agent': agent,
+                'drive_letter': drive_letter,
+                'file_name': file_name,
+                'file_extension': file_extension,
+                'file_size': file_size,
+                'file_content': file_content,
+                'is_deleted_on_client': False,
+            }
+        )
+
+        return JsonResponse({
+            'status': 'ok',
+            'file_id': obj.id,
+            'created': created,
+            'message': f"File '{file_name}' uploaded successfully."
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_file_delete_notify(request):
+    """Notify that a file was deleted on the client machine; keep file in DB and mark is_deleted_on_client=True."""
+    try:
+        data = json.loads(request.body)
+        hostname = data.get('hostname', '').strip()
+        file_path = data.get('file_path', '').strip()
+
+        if not hostname or not file_path:
+            return JsonResponse({'error': 'Missing hostname or file_path'}, status=400)
+
+        file_obj = UploadedFile.objects.filter(hostname=hostname, file_path=file_path).first()
+        if file_obj:
+            file_obj.is_deleted_on_client = True
+            file_obj.save(update_fields=['is_deleted_on_client', 'last_updated'])
+
+        return JsonResponse({'status': 'ok', 'message': 'File marked as deleted on client.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def api_file_download(request, file_id):
+    """Download a file by its database ID."""
+    try:
+        uploaded = UploadedFile.objects.get(id=file_id)
+    except UploadedFile.DoesNotExist:
+        raise Http404("File not found")
+
+    content_type, _ = mimetypes.guess_type(uploaded.file_name)
+    if not content_type:
+        content_type = 'application/octet-stream'
+
+    response = HttpResponse(bytes(uploaded.file_content), content_type=content_type)
+    response['Content-Disposition'] = f'attachment; filename="{uploaded.file_name}"'
+    return response
+
+
+def api_file_list(request):
+    """Return a JSON list of all uploaded files (without heavy binary content)."""
+    hostname_filter = request.GET.get('hostname', '').strip()
+    search = request.GET.get('search', '').strip()
+
+    qs = UploadedFile.objects.all()
+    if hostname_filter and hostname_filter != 'all':
+        qs = qs.filter(hostname=hostname_filter)
+    if search:
+        qs = qs.filter(file_name__icontains=search)
+
+    # Limit to 500 most recent files
+    qs = qs.order_by('-uploaded_at')[:500]
+
+    files_data = []
+    for f in qs:
+        files_data.append({
+            'id': f.id,
+            'hostname': f.hostname,
+            'drive_letter': f.drive_letter,
+            'file_path': f.file_path,
+            'file_name': f.file_name,
+            'file_extension': f.file_extension,
+            'file_size': f.file_size,
+            'is_deleted_on_client': f.is_deleted_on_client,
+            'uploaded_at': f.uploaded_at.isoformat() if f.uploaded_at else None,
+        })
+
+    return JsonResponse({'files': files_data, 'total': len(files_data)})

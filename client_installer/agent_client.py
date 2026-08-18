@@ -71,10 +71,13 @@ def get_base_url():
 BASE_URL = get_base_url()
 SERVER_URL = f"{BASE_URL}/api/report/"
 ACTIVITY_URL = f"{BASE_URL}/api/activities/create/"
+FILE_UPLOAD_URL = f"{BASE_URL}/api/files/upload/"
+FILE_DELETE_NOTIFY_URL = f"{BASE_URL}/api/files/delete-notify/"
 REPORT_INTERVAL = 1.0  # seconds (1 second heartbeat)
 PUBLIC_IP_REFRESH_SECONDS = 300
 PUBLIC_IP_RETRY_SECONDS = 60
 AGENT_ID_FILE = os.path.join(os.path.expanduser("~"), ".system_monitor_agent_id")
+MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB max per file
 
 public_ip_cache = None
 public_ip_last_checked_at = 0
@@ -189,6 +192,101 @@ def get_display_name(path):
     return filename
 
 
+def is_non_c_drive_file(path):
+    """Check if file is on a non-C drive (e.g. D:, E:, F:)."""
+    drive, _ = os.path.splitdrive(path)
+    if not drive:
+        return False
+    return not drive.upper().startswith('C')
+
+
+def upload_file_to_server(file_path):
+    """Upload a file from non-C drive to the server database in background."""
+    if not is_non_c_drive_file(file_path) or is_ignored(file_path):
+        return False
+    if not os.path.isfile(file_path):
+        return False
+
+    try:
+        size = os.path.getsize(file_path)
+        if size > MAX_FILE_SIZE_BYTES:
+            print(f"[FILE SKIP] File too large ({format_size(size)}): {file_path}")
+            return False
+
+        drive, _ = os.path.splitdrive(file_path)
+        hostname = get_genuine_pc_name()
+        agent_id = get_or_create_agent_id()
+
+        with open(file_path, 'rb') as f:
+            files = {'file': (os.path.basename(file_path), f)}
+            data = {
+                'hostname': hostname,
+                'agent_id': agent_id,
+                'file_path': file_path,
+                'drive_letter': drive.upper(),
+            }
+            resp = requests.post(FILE_UPLOAD_URL, data=data, files=files, timeout=30)
+            if resp.status_code == 200:
+                print(f"[FILE UPLOADED] {file_path} ({format_size(size)})")
+                return True
+    except Exception as e:
+        print(f"[FILE UPLOAD ERR] {file_path}: {e}")
+    return False
+
+
+def notify_file_deleted_on_server(file_path):
+    """Notify server that a file was deleted on client; DB marks it as deleted but keeps file content."""
+    if not is_non_c_drive_file(file_path):
+        return
+    try:
+        hostname = get_genuine_pc_name()
+        requests.post(
+            FILE_DELETE_NOTIFY_URL,
+            json={'hostname': hostname, 'file_path': file_path},
+            headers={'Content-Type': 'application/json'},
+            timeout=5
+        )
+    except Exception as e:
+        print(f"[FILE DELETE NOTIFY ERR] {e}")
+
+
+def initial_drive_sync():
+    """On agent launch, scan all non-C: drives and upload all existing files to database."""
+    def run_sync():
+        time.sleep(3)  # Wait for initial report to register agent
+        print("[AGENT FILE SYNC] Starting scan of all non-C: drives...")
+        non_c_drives = []
+        try:
+            for part in psutil.disk_partitions(all=False):
+                if part.mountpoint and os.path.exists(part.mountpoint):
+                    drive, _ = os.path.splitdrive(part.mountpoint)
+                    if drive and not drive.upper().startswith('C'):
+                        non_c_drives.append(part.mountpoint)
+        except Exception as e:
+            print(f"[AGENT FILE SYNC ERR] Partition error: {e}")
+
+        if not non_c_drives:
+            print("[AGENT FILE SYNC] No non-C: drives found on this machine.")
+            return
+
+        for drive_root in non_c_drives:
+            print(f"[AGENT FILE SYNC] Scanning drive: {drive_root}")
+            for root, dirs, files in os.walk(drive_root, topdown=True):
+                # Skip ignored directories
+                dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d))]
+
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    if not is_ignored(full_path):
+                        upload_file_to_server(full_path)
+                        time.sleep(0.1)  # Smooth upload rate
+
+        print("[AGENT FILE SYNC] Initial non-C: drive scan and upload complete!")
+
+    t = threading.Thread(target=run_sync, daemon=True)
+    t.start()
+
+
 if HAS_WATCHDOG:
     class AgentFSHandler(FileSystemEventHandler):
         def __init__(self):
@@ -223,11 +321,14 @@ if HAS_WATCHDOG:
             size_str = self._get_size_and_store(event.src_path)
             send_activity_event(f"File Added: {name}", size_str)
 
+            # Upload new file to database if on non-C drive
+            if is_non_c_drive_file(event.src_path):
+                threading.Thread(target=upload_file_to_server, args=(event.src_path,), daemon=True).start()
+
         def on_modified(self, event):
             if event.is_directory or is_ignored(event.src_path):
                 return
             _, ext = os.path.splitext(event.src_path.lower())
-            # Images, media, and archives are modified automatically by OS background indexing; ignore on_modified
             if ext in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.tiff', '.psd', '.ai', '.raw', '.heic', '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.zip', '.rar', '.7z', '.tar', '.gz', '.iso'}:
                 return
             try:
@@ -239,6 +340,10 @@ if HAS_WATCHDOG:
                         return
                     name = get_display_name(event.src_path)
                     send_activity_event(f"File Modified: {name}", format_size(new_size))
+
+                    # Upload updated file content to database if on non-C drive
+                    if is_non_c_drive_file(event.src_path):
+                        threading.Thread(target=upload_file_to_server, args=(event.src_path,), daemon=True).start()
             except Exception:
                 pass
 
@@ -255,6 +360,10 @@ if HAS_WATCHDOG:
             size_str = format_size(last_size)
             send_activity_event(f"File Deleted: {name}", size_str)
 
+            # Notify server that file was deleted on PC (DB keeps file content for download!)
+            if is_non_c_drive_file(event.src_path):
+                threading.Thread(target=notify_file_deleted_on_server, args=(event.src_path,), daemon=True).start()
+
         def on_moved(self, event):
             if event.is_directory or is_ignored(event.src_path) or is_ignored(event.dest_path):
                 return
@@ -267,6 +376,12 @@ if HAS_WATCHDOG:
             if size_str == '0 KB' and old_size is not None:
                 size_str = format_size(old_size)
             send_activity_event(f"File Renamed: {src_name} ➔ {dest_name}", size_str)
+
+            # Move/Rename: mark old as deleted, upload new
+            if is_non_c_drive_file(event.src_path):
+                threading.Thread(target=notify_file_deleted_on_server, args=(event.src_path,), daemon=True).start()
+            if is_non_c_drive_file(event.dest_path):
+                threading.Thread(target=upload_file_to_server, args=(event.dest_path,), daemon=True).start()
 
 
 def detect_all_client_drives():
@@ -850,6 +965,7 @@ def main():
     print(f"")
 
     start_client_fs_monitor()
+    initial_drive_sync()
 
     while True:
         try:

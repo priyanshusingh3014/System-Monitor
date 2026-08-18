@@ -53,6 +53,12 @@
                     </svg>
                     <span>Storage</span>
                 </a>
+                <a href="#" class="nav-item" id="nav-files">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span>Files</span>
+                </a>
                 <a href="#" class="nav-item" id="nav-recovery">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="1,4 1,10 7,10"/>
@@ -398,6 +404,83 @@
                                 </tr>
                             </thead>
                             <tbody id="storage-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ==================== FILES PAGE ==================== -->
+            <div class="page-view" id="page-files" style="display:none;">
+
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h2 class="page-title">Drive Files &amp; Database Backups</h2>
+                    <p class="page-subtitle">Real-time synchronized file archive from non-C: drives — download any file at any time</p>
+                </div>
+
+                <!-- Files Stat Cards Row -->
+                <div class="stat-cards" id="files-stat-cards">
+                    <div class="stat-card" id="card-total-files">
+                        <span class="stat-card-label">Files in Database</span>
+                        <span class="stat-card-value" id="total-files-value">0 Files</span>
+                    </div>
+                    <div class="stat-card accent" id="card-files-storage">
+                        <span class="stat-card-label">Total Backup Size</span>
+                        <span class="stat-card-value" id="files-storage-value">0 MB</span>
+                    </div>
+                    <div class="stat-card dark" id="card-files-filter">
+                        <span class="stat-card-label">Filter Device &amp; Search</span>
+                        <div class="files-filter-controls">
+                            <select id="files-device-select" class="device-filter-dropdown" style="margin-bottom: 6px;">
+                                <option value="all">All Devices</option>
+                            </select>
+                            <input type="text" id="files-search-input" class="files-search-box" placeholder="Search file name..." />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Files Table Section -->
+                <div class="activity-section" id="files-table-section">
+                    <div class="section-header-row">
+                        <h3 class="section-title">Archived Drive Files</h3>
+                        <button class="btn-clear-history" id="btn-refresh-files" title="Refresh files list" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;margin-right:6px;">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="empty-state" id="files-empty-state" style="display:none;">
+                        <div class="empty-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </div>
+                        <p class="empty-text">No files backed up yet.</p>
+                        <p class="empty-hint">Install <code>DriveAgentSetup.exe</code> on a machine with D:, E:, or USB drives to automatically upload files to this database.</p>
+                    </div>
+
+                    <!-- Files Table -->
+                    <div class="table-wrapper" id="files-table-wrapper">
+                        <table class="activity-table" id="files-table">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Device</th>
+                                    <th>Drive &amp; Path</th>
+                                    <th>Size</th>
+                                    <th>Status on PC</th>
+                                    <th>Uploaded</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="files-tbody">
                             </tbody>
                         </table>
                     </div>

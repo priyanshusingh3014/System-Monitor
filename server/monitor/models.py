@@ -63,3 +63,25 @@ class DeletedAgent(models.Model):
 
     def __str__(self):
         return f"DeletedAgent ({self.hostname} - {self.mac_address} - {self.agent_id})"
+
+
+class UploadedFile(models.Model):
+    """Stores actual file contents uploaded by agents from non-C: drives."""
+    agent = models.ForeignKey(AgentReport, on_delete=models.CASCADE, related_name='files', null=True, blank=True)
+    hostname = models.CharField(max_length=255, db_index=True)
+    drive_letter = models.CharField(max_length=10)          # e.g. "D:", "E:"
+    file_path = models.TextField()                           # original full path on user's PC
+    file_name = models.CharField(max_length=512)             # just the filename
+    file_extension = models.CharField(max_length=50, blank=True, default='')
+    file_size = models.BigIntegerField()                     # size in bytes
+    file_content = models.BinaryField()                      # actual file bytes (LONGBLOB in MySQL)
+    is_deleted_on_client = models.BooleanField(default=False) # True if deleted from PC, but kept in DB
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        unique_together = ('hostname', 'file_path')          # prevent duplicate uploads
+
+    def __str__(self):
+        return f"{self.file_name} ({self.hostname} - {self.drive_letter})"
