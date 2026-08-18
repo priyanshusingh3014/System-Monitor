@@ -477,24 +477,19 @@ def api_agents(request):
     BackupActivity.objects.filter(noise_filter).delete()
 
     # Query DB activities from the last 24 hours (newest first)
-    all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).exclude(hostname='').order_by('-id')
+    all_activities = BackupActivity.objects.filter(timestamp__gte=cutoff_time).exclude(hostname='').order_by('-id')[:50]
     
     db_activities = []
-    seen_recent_targets = {}
+    seen_events = set()
     for act in all_activities:
-        if not is_dashboard_activity(act.event):
+        if not is_dashboard_activity(act.event) or not act.hostname:
             continue
-        if not act.hostname:
+        # Avoid immediate duplicate rows with identical event + timestamp
+        event_key = f"{act.hostname}:{act.event}:{act.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        if event_key in seen_events:
             continue
-
-        t_key = f"{act.hostname}:{get_target_key(act.event)}"
-        if t_key in seen_recent_targets and abs((seen_recent_targets[t_key] - act.timestamp).total_seconds()) <= 5:
-            continue
-
-        seen_recent_targets[t_key] = act.timestamp
+        seen_events.add(event_key)
         db_activities.append(act)
-        if len(db_activities) >= 50:
-            break
 
     activities_data = []
     for act in db_activities:

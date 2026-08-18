@@ -8,7 +8,7 @@
     'use strict';
 
     // ---- Config ----
-    const POLL_INTERVAL = 1000;
+    const POLL_INTERVAL = 300;
     const API_URL = '/api/agents/';
 
     // ---- State ----

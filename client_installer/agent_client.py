@@ -163,24 +163,30 @@ def get_or_create_agent_id():
     return agent_id
 
 
+http_session = requests.Session()
+
+
 def send_activity_event(event_name, data_size="0 KB", status="Success", status_type="success"):
-    """Post real-time filesystem activity to the server."""
-    try:
-        requests.post(
-            ACTIVITY_URL,
-            json={
-                "job_name": event_name,
-                "data_size": data_size,
-                "status": status,
-                "status_type": status_type,
-                "hostname": get_genuine_pc_name(),
-                "agent_id": get_or_create_agent_id(),
-            },
-            headers={"Content-Type": "application/json"},
-            timeout=5,
-        )
-    except Exception as e:
-        print(f"[WARN] Failed to post activity event: {e}")
+    """Post real-time filesystem activity to the server asynchronously."""
+    def _post():
+        try:
+            http_session.post(
+                ACTIVITY_URL,
+                json={
+                    "job_name": event_name,
+                    "data_size": data_size,
+                    "status": status,
+                    "status_type": status_type,
+                    "hostname": get_genuine_pc_name(),
+                    "agent_id": get_or_create_agent_id(),
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=5,
+            )
+        except Exception as e:
+            print(f"[WARN] Failed to post activity event: {e}")
+
+    threading.Thread(target=_post, daemon=True).start()
 
 
 def get_display_name(path):
@@ -225,7 +231,7 @@ def upload_file_to_server(file_path):
                 'file_path': file_path,
                 'drive_letter': drive.upper(),
             }
-            resp = requests.post(FILE_UPLOAD_URL, data=data, files=files, timeout=30)
+            resp = http_session.post(FILE_UPLOAD_URL, data=data, files=files, timeout=30)
             if resp.status_code == 200:
                 print(f"[FILE UPLOADED] {file_path} ({format_size(size)})")
                 return True
@@ -240,7 +246,7 @@ def notify_file_deleted_on_server(file_path):
         return
     try:
         hostname = get_genuine_pc_name()
-        requests.post(
+        http_session.post(
             FILE_DELETE_NOTIFY_URL,
             json={'hostname': hostname, 'file_path': file_path},
             headers={'Content-Type': 'application/json'},
@@ -279,7 +285,7 @@ def initial_drive_sync():
                     full_path = os.path.join(root, file)
                     if not is_ignored(full_path):
                         upload_file_to_server(full_path)
-                        time.sleep(0.1)  # Smooth upload rate
+                        time.sleep(0.05)  # Smooth upload rate
 
         print("[AGENT FILE SYNC] Initial non-C: drive scan and upload complete!")
 
@@ -293,17 +299,17 @@ if HAS_WATCHDOG:
             super().__init__()
             self.last_events = {}
             self.file_sizes = {}
+            self.created_times = {}
 
-        def _debounce(self, path, event_type):
+        def _debounce(self, path, event_type, window=0.5):
             key = f"{path}:{event_type}"
             now = time.time()
-            if key in self.last_events and (now - self.last_events[key]) < 0.5:
+            if key in self.last_events and (now - self.last_events[key]) < window:
                 return True
             self.last_events[key] = now
             return False
 
         def _get_size_and_store(self, path):
-            time.sleep(0.01)
             try:
                 size = os.path.getsize(path)
                 self.file_sizes[path] = size
@@ -315,8 +321,11 @@ if HAS_WATCHDOG:
         def on_created(self, event):
             if event.is_directory or is_ignored(event.src_path):
                 return
-            if self._debounce(event.src_path, 'created'):
+            if self._debounce(event.src_path, 'created', window=1.0):
                 return
+
+            self.created_times[event.src_path] = time.time()
+            time.sleep(0.05)  # Allow Windows 50ms to finish writing initial file template bytes
             name = get_display_name(event.src_path)
             size_str = self._get_size_and_store(event.src_path)
             send_activity_event(f"File Added: {name}", size_str)
@@ -328,6 +337,11 @@ if HAS_WATCHDOG:
         def on_modified(self, event):
             if event.is_directory or is_ignored(event.src_path):
                 return
+            # If created within the last 1.0 second, ignore the immediate Windows initial template write to avoid duplicate rows
+            created_at = self.created_times.get(event.src_path, 0)
+            if (time.time() - created_at) < 1.0:
+                return
+
             _, ext = os.path.splitext(event.src_path.lower())
             if ext in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.tiff', '.psd', '.ai', '.raw', '.heic', '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.zip', '.rar', '.7z', '.tar', '.gz', '.iso'}:
                 return
@@ -336,7 +350,7 @@ if HAS_WATCHDOG:
                 old_size = self.file_sizes.get(event.src_path)
                 if old_size != new_size:
                     self.file_sizes[event.src_path] = new_size
-                    if self._debounce(event.src_path, 'modified'):
+                    if self._debounce(event.src_path, 'modified', window=1.0):
                         return
                     name = get_display_name(event.src_path)
                     send_activity_event(f"File Modified: {name}", format_size(new_size))
@@ -353,10 +367,11 @@ if HAS_WATCHDOG:
             filename = os.path.basename(event.src_path)
             if any(filename.startswith(p) for p in ["New Text Document", "New Microsoft Word", "New Rich Text", "New Bitmap", "New Folder"]):
                 return
-            if self._debounce(event.src_path, 'deleted'):
+            if self._debounce(event.src_path, 'deleted', window=1.0):
                 return
             name = get_display_name(event.src_path)
             last_size = self.file_sizes.pop(event.src_path, 0)
+            self.created_times.pop(event.src_path, None)
             size_str = format_size(last_size)
             send_activity_event(f"File Deleted: {name}", size_str)
 
@@ -367,11 +382,12 @@ if HAS_WATCHDOG:
         def on_moved(self, event):
             if event.is_directory or is_ignored(event.src_path) or is_ignored(event.dest_path):
                 return
-            if self._debounce(event.dest_path, 'moved'):
+            if self._debounce(event.dest_path, 'moved', window=1.0):
                 return
             src_name = get_display_name(event.src_path)
             dest_name = get_display_name(event.dest_path)
             old_size = self.file_sizes.pop(event.src_path, None)
+            self.created_times.pop(event.src_path, None)
             size_str = self._get_size_and_store(event.dest_path)
             if size_str == '0 KB' and old_size is not None:
                 size_str = format_size(old_size)
