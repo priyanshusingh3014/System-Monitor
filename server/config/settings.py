@@ -68,6 +68,7 @@ if os.environ.get('MYSQL_HOST'):
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 if os.environ.get('MYSQL_HOST'):
+    import ssl
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -77,7 +78,7 @@ if os.environ.get('MYSQL_HOST'):
             'HOST': os.environ.get('MYSQL_HOST', 'localhost'),
             'PORT': os.environ.get('MYSQL_PORT', '3306'),
             'OPTIONS': {
-                'ssl': {'ca': ''},  # Tell PyMySQL to use SSL, which Aiven requires
+                'ssl': {'cert_reqs': ssl.CERT_NONE},  # Bypass Aiven's self-signed cert verification
             }
         }
     }
