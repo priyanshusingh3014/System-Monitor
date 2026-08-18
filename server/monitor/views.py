@@ -577,7 +577,9 @@ def api_file_upload(request):
         if not uploaded_file:
             return JsonResponse({'error': 'No file attached'}, status=400)
 
-        file_name = os.path.basename(file_path)
+        # Extract clean file name regardless of OS slashes
+        clean_path = file_path.replace('\\', '/')
+        file_name = clean_path.split('/')[-1]
         file_extension = os.path.splitext(file_name)[1].lower()
         file_content = uploaded_file.read()
         file_size = len(file_content)

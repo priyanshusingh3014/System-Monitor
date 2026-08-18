@@ -901,25 +901,17 @@ def install_to_startup():
         if not is_installed_path:
             is_silent = bool('--silent' in sys.argv or '--reconnect' in sys.argv or '--quiet' in sys.argv or '--yes' in sys.argv)
             if not is_silent:
+                prompt_msg = "Do you want to install System Drive Agent on this PC?"
                 if os.path.exists(target_exe):
-                    # Already installed! Ask user if they want to UNINSTALL
-                    res = show_message_box(
-                        "System Drive Agent Setup",
-                        "System Drive Agent is already installed on this PC.\n\nWould you like to UNINSTALL System Drive Agent from this PC?",
-                        0x00000004 | 0x00000020  # Yes / No
-                    )
-                    if res == 6:  # IDYES -> User wants to UNINSTALL
-                        perform_uninstallation()
+                    prompt_msg = "System Drive Agent is already installed on this PC.\n\nWould you like to UPDATE / REINSTALL it now with the latest features?"
+
+                res = show_message_box(
+                    "System Drive Agent Setup",
+                    prompt_msg,
+                    0x00000004 | 0x00000020  # Yes / No
+                )
+                if res != 6:  # User clicked NO or closed window
                     sys.exit(0)
-                else:
-                    # Not installed yet! Ask user if they want to INSTALL
-                    res = show_message_box(
-                        "System Drive Agent Setup",
-                        "Do you want to install System Drive Agent on this PC?",
-                        0x00000004 | 0x00000020  # Yes / No
-                    )
-                    if res != 6:  # User clicked NO or closed window
-                        sys.exit(0)
 
             # Kill any existing background agent process so file overwrite succeeds cleanly
             kill_running_agent()
