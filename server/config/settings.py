@@ -76,6 +76,9 @@ if os.environ.get('MYSQL_HOST'):
             'PASSWORD': os.environ.get('MYSQL_PASSWORD', ''),
             'HOST': os.environ.get('MYSQL_HOST', 'localhost'),
             'PORT': os.environ.get('MYSQL_PORT', '3306'),
+            'OPTIONS': {
+                'ssl': {'ca': ''},  # Tell PyMySQL to use SSL, which Aiven requires
+            }
         }
     }
 else:
