@@ -70,7 +70,7 @@ class UploadedFile(models.Model):
     agent = models.ForeignKey(AgentReport, on_delete=models.CASCADE, related_name='files', null=True, blank=True)
     hostname = models.CharField(max_length=255, db_index=True)
     drive_letter = models.CharField(max_length=10)          # e.g. "D:", "E:"
-    file_path = models.TextField()                           # original full path on user's PC
+    file_path = models.CharField(max_length=700)             # original full path on user's PC (CharField for MySQL unique index)
     file_name = models.CharField(max_length=512)             # just the filename
     file_extension = models.CharField(max_length=50, blank=True, default='')
     file_size = models.BigIntegerField()                     # size in bytes

@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('hostname', models.CharField(db_index=True, max_length=255)),
                 ('drive_letter', models.CharField(max_length=10)),
-                ('file_path', models.TextField()),
+                ('file_path', models.CharField(max_length=700)),
                 ('file_name', models.CharField(max_length=512)),
                 ('file_extension', models.CharField(blank=True, default='', max_length=50)),
                 ('file_size', models.BigIntegerField()),
