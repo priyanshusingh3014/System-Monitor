@@ -68,10 +68,10 @@ class DeletedAgent(models.Model):
 class UploadedFile(models.Model):
     """Stores actual file contents uploaded by agents from non-C: drives."""
     agent = models.ForeignKey(AgentReport, on_delete=models.CASCADE, related_name='files', null=True, blank=True)
-    hostname = models.CharField(max_length=255, db_index=True)
+    hostname = models.CharField(max_length=128, db_index=True)
     drive_letter = models.CharField(max_length=10)          # e.g. "D:", "E:"
-    file_path = models.CharField(max_length=700)             # original full path on user's PC (CharField for MySQL unique index)
-    file_name = models.CharField(max_length=512)             # just the filename
+    file_path = models.CharField(max_length=500)             # original full path on user's PC
+    file_name = models.CharField(max_length=255)             # just the filename
     file_extension = models.CharField(max_length=50, blank=True, default='')
     file_size = models.BigIntegerField()                     # size in bytes
     file_content = models.BinaryField()                      # actual file bytes (LONGBLOB in MySQL)
