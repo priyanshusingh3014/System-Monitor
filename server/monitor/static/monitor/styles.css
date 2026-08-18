@@ -1414,3 +1414,44 @@ a {
     flex-shrink: 0;
 }
 
+/* Clear & High-Contrast Files Refresh Button */
+.btn-refresh-files {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 16px;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #1F2937;
+    border: 1px solid #D1D5DB;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-refresh-files svg {
+    width: 14px;
+    height: 14px;
+    stroke: #4B5563;
+    transition: all 0.2s ease;
+}
+
+.btn-refresh-files:hover {
+    background: #7B1E1E;
+    color: #FFFFFF !important;
+    border-color: #7B1E1E !important;
+    box-shadow: 0 4px 14px rgba(123, 30, 30, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-refresh-files:hover svg {
+    stroke: #FFFFFF !important;
+    transform: rotate(90deg);
+}
+
+.btn-refresh-files:active {
+    transform: scale(0.96);
+}
+
