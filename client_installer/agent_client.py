@@ -758,7 +758,7 @@ def kill_running_agent():
     if os.name != 'nt':
         return
     try:
-        import psutil, os, time
+        import psutil, time
         current_proc = psutil.Process(os.getpid())
         parent_pid = current_proc.ppid()
         current_pid = current_proc.pid
