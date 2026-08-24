@@ -904,7 +904,7 @@ def perform_uninstallation():
 
         show_message_box(
             "System Drive Agent Uninstalled",
-            "System Drive Agent has been uninstalled successfully from this PC.",
+            "Successfully uninstalled System Drive Agent from this PC.",
             0x00000040
         )
 
@@ -934,7 +934,7 @@ def handle_uninstall():
 
 
 def install_to_startup():
-    """Ask user for confirmation before installing/uninstalling Drive Agent on the PC."""
+    """Ask user for confirmation before installing or uninstalling Drive Agent on the PC."""
     if os.name != 'nt':
         return
 
@@ -950,72 +950,85 @@ def install_to_startup():
 
         is_installed_path = (os.path.normpath(current_exe).lower() == os.path.normpath(target_exe).lower())
 
-        # If running installer from outside AppData directory
-        if not is_installed_path:
-            is_silent = bool('--silent' in sys.argv or '--reconnect' in sys.argv or '--quiet' in sys.argv or '--yes' in sys.argv)
-            if not is_silent:
-                prompt_msg = "Do you want to install System Drive Agent on this PC?"
-                if os.path.exists(target_exe):
-                    prompt_msg = "System Drive Agent is already installed on this PC.\n\nWould you like to UPDATE / REINSTALL it now with the latest features?"
+        # If already running the background installed target executable in AppData, continue to background loop
+        if is_installed_path:
+            return
 
-                res = show_message_box(
-                    "System Drive Agent Setup",
-                    prompt_msg,
-                    0x00000004 | 0x00000020  # Yes / No
-                )
-                if res != 6:  # User clicked NO or closed window
-                    sys.exit(0)
-
-            # Kill any existing background agent process so file overwrite succeeds cleanly
-            kill_running_agent()
-
-            # Copy executable & config.json to AppData
-            if not os.path.exists(app_dir):
-                os.makedirs(app_dir, exist_ok=True)
-
-            try:
-                shutil.copy2(current_exe, target_exe)
-                src_cfg = get_config_file_path()
-                if os.path.exists(src_cfg):
-                    shutil.copy2(src_cfg, target_cfg)
-                else:
-                    with open(target_cfg, "w") as f:
-                        json.dump({"server_url": BASE_URL}, f, indent=2)
-            except Exception as e:
-                print(f"[INSTALL] File copy warning: {e}")
-
-            # Add to HKCU Windows Startup Registry Key
-            run_key_path = r'Software\Microsoft\Windows\CurrentVersion\Run'
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key_path, 0, winreg.KEY_SET_VALUE)
-            winreg.SetValueEx(key, 'SystemMonitorAgent', 0, winreg.REG_SZ, f'"{target_exe}"')
-            winreg.CloseKey(key)
-
-            # Register under Windows Control Panel Programs and Features
-            register_uninstaller(target_exe, app_dir)
-
-            # Send immediate initial report to un-blacklist & register device instantly on server
-            try:
-                aid = get_or_create_agent_id()
-                d_init = collect_system_info(aid)
-                d_init["is_fresh_installer_run"] = True
-                send_report(d_init)
-            except Exception as e:
-                print(f"[INSTALL] Initial report notice: {e}")
-
-            # Show Success notification
-            show_message_box(
-                "Drive Agent Installed",
-                "Drive Agent has been installed successfully and is now monitoring your PC in the background.",
-                0x00000040
+        # -------------------------------------------------------------
+        # CASE 1: SECOND RUN -> System Drive Agent is ALREADY INSTALLED
+        # -------------------------------------------------------------
+        if os.path.exists(target_exe):
+            res = show_message_box(
+                "Uninstall System Drive Agent",
+                "System Drive Agent is already installed on this PC.\n\nDo you want to uninstall System Drive Agent from your PC?",
+                0x00000004 | 0x00000020  # Yes / No Question
             )
-
-            # Launch installed target executable detached in background and exit installer
-            try:
-                CREATE_NO_WINDOW = 0x08000000
-                subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=CREATE_NO_WINDOW)
-            except Exception as e:
-                print(f"[INSTALL] Launch warning: {e}")
+            if res == 6:  # User clicked YES
+                perform_uninstallation()
             sys.exit(0)
+
+        # -------------------------------------------------------------
+        # CASE 2: FIRST RUN -> System Drive Agent is NOT YET INSTALLED
+        # -------------------------------------------------------------
+        res = show_message_box(
+            "System Drive Agent Setup",
+            "Do you want to install System Drive Agent on this PC?",
+            0x00000004 | 0x00000020  # Yes / No Question
+        )
+        if res != 6:  # User clicked NO or closed window
+            sys.exit(0)
+
+        # 1. Kill any existing process before copying
+        kill_running_agent()
+
+        # 2. Create destination directory & copy files
+        if not os.path.exists(app_dir):
+            os.makedirs(app_dir, exist_ok=True)
+
+        try:
+            shutil.copy2(current_exe, target_exe)
+            src_cfg = get_config_file_path()
+            if os.path.exists(src_cfg):
+                shutil.copy2(src_cfg, target_cfg)
+            else:
+                with open(target_cfg, "w") as f:
+                    json.dump({"server_url": BASE_URL}, f, indent=2)
+        except Exception as e:
+            print(f"[INSTALL] File copy warning: {e}")
+
+        # 3. Add to Windows Startup Registry Key
+        run_key_path = r'Software\Microsoft\Windows\CurrentVersion\Run'
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key_path, 0, winreg.KEY_SET_VALUE)
+        winreg.SetValueEx(key, 'SystemMonitorAgent', 0, winreg.REG_SZ, f'"{target_exe}"')
+        winreg.CloseKey(key)
+
+        # 4. Register in Windows Programs and Features
+        register_uninstaller(target_exe, app_dir)
+
+        # 5. Send immediate initial report so agent immediately un-blacklists & registers on dashboard
+        try:
+            aid = get_or_create_agent_id()
+            d_init = collect_system_info(aid)
+            d_init["is_fresh_installer_run"] = True
+            send_report(d_init)
+        except Exception as e:
+            print(f"[INSTALL] Initial report notice: {e}")
+
+        # 6. Launch installed target executable detached in background
+        try:
+            CREATE_NO_WINDOW = 0x08000000
+            subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=CREATE_NO_WINDOW)
+        except Exception as e:
+            print(f"[INSTALL] Launch warning: {e}")
+
+        # 7. Show success confirmation message
+        show_message_box(
+            "Drive Agent Started",
+            "Drive Agent started successfully and is now monitoring your PC in the background.",
+            0x00000040  # Info Icon
+        )
+
+        sys.exit(0)
 
     except SystemExit:
         sys.exit(0)
