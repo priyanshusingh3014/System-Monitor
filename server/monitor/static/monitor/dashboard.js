@@ -700,17 +700,32 @@
             });
         }
 
-        // Fallback to D: if no secondary drives reported
-        if (availableDrives.size === 0) {
-            availableDrives.add('D:');
+        const sortedDrives = Array.from(availableDrives).sort();
+
+        // If no secondary drives on this device
+        if (sortedDrives.length === 0) {
+            selectedFilesDrive = '';
+            if (filesDriveSelect) {
+                filesDriveSelect.innerHTML = '<option value="" disabled selected>No Secondary Drives</option>';
+            }
+            if (filesEmptyState) {
+                filesEmptyState.style.display = 'flex';
+                const emptyText = filesEmptyState.querySelector('.empty-text');
+                const emptyHint = filesEmptyState.querySelector('.empty-hint');
+                if (emptyText) emptyText.textContent = 'No secondary drive found on this device.';
+                if (emptyHint) emptyHint.textContent = 'This machine only has a primary C: drive partition.';
+            }
+            if (filesTableWrapper) filesTableWrapper.style.display = 'none';
+            setTextIfChanged(totalFilesValue, '0 Files');
+            setTextIfChanged(filesStorageValue, '0 B');
+            return;
         }
 
-        const sortedDrives = Array.from(availableDrives).sort();
         if (!selectedFilesDrive || !sortedDrives.includes(selectedFilesDrive)) {
             selectedFilesDrive = sortedDrives[0];
         }
 
-        // Update filesDriveSelect options (Only genuine drive names, no 'All Drives')
+        // Update filesDriveSelect options (100% dynamic, only genuine drives reported by the device)
         if (filesDriveSelect) {
             let driveOptionsHtml = '';
             sortedDrives.forEach(drv => {
