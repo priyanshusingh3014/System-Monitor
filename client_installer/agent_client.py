@@ -748,8 +748,8 @@ def show_message_box(title, text, style=0):
     if os.name == 'nt':
         try:
             import ctypes
-            return ctypes.windll.user32.MessageBoxW(0, text, title, style | 0x00040000)
-        except Exception:
+            return ctypes.windll.user32.MessageBoxW(0, str(text), str(title), int(style) | 0x00040000 | 0x00010000)
+        except Exception as e:
             pass
     return 0
 
@@ -983,50 +983,54 @@ def install_to_startup():
 
         # 2. Create destination directory & copy files
         if not os.path.exists(app_dir):
-            os.makedirs(app_dir, exist_ok=True)
+            try:
+                os.makedirs(app_dir, exist_ok=True)
+            except Exception:
+                pass
+
+        for attempt in range(5):
+            try:
+                shutil.copy2(current_exe, target_exe)
+                break
+            except Exception:
+                time.sleep(0.3)
 
         try:
-            shutil.copy2(current_exe, target_exe)
             src_cfg = get_config_file_path()
             if os.path.exists(src_cfg):
                 shutil.copy2(src_cfg, target_cfg)
             else:
                 with open(target_cfg, "w") as f:
                     json.dump({"server_url": BASE_URL}, f, indent=2)
-        except Exception as e:
-            print(f"[INSTALL] File copy warning: {e}")
+        except Exception:
+            pass
 
         # 3. Add to Windows Startup Registry Key
-        run_key_path = r'Software\Microsoft\Windows\CurrentVersion\Run'
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key_path, 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(key, 'SystemMonitorAgent', 0, winreg.REG_SZ, f'"{target_exe}"')
-        winreg.CloseKey(key)
+        try:
+            run_key_path = r'Software\Microsoft\Windows\CurrentVersion\Run'
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key_path, 0, winreg.KEY_SET_VALUE)
+            winreg.SetValueEx(key, 'SystemMonitorAgent', 0, winreg.REG_SZ, f'"{target_exe}"')
+            winreg.CloseKey(key)
+        except Exception:
+            pass
 
         # 4. Register in Windows Programs and Features
-        register_uninstaller(target_exe, app_dir)
+        try:
+            register_uninstaller(target_exe, app_dir)
+        except Exception:
+            pass
 
         # 5. Launch installed target executable detached in background
         try:
             CREATE_NO_WINDOW = 0x08000000
             subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=CREATE_NO_WINDOW)
-        except Exception as e:
-            print(f"[INSTALL] Launch warning: {e}")
+        except Exception:
+            pass
 
-        # 6. Send un-blacklisting report in a quick background thread
-        def _send_initial_unblacklist():
-            try:
-                aid = get_or_create_agent_id()
-                d_init = collect_system_info(aid)
-                d_init["is_fresh_installer_run"] = True
-                send_report(d_init)
-            except Exception:
-                pass
-        threading.Thread(target=_send_initial_unblacklist, daemon=True).start()
-
-        # 7. Show success confirmation message
+        # 6. Show success confirmation message
         show_message_box(
-            "Drive Agent Started",
-            "Drive Agent started successfully and is now monitoring your PC in the background.",
+            "Drive Agent Installed",
+            "Drive Agent installed successfully and is now monitoring your PC in the background.",
             0x00000040  # Info Icon
         )
 
