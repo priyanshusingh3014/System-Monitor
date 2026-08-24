@@ -637,7 +637,7 @@ def api_file_delete_notify(request):
 
 
 def api_file_download(request, file_id):
-    """Download a file by its database ID."""
+    """Download or view a file by its database ID."""
     try:
         uploaded = UploadedFile.objects.get(id=file_id)
     except UploadedFile.DoesNotExist:
@@ -648,18 +648,27 @@ def api_file_download(request, file_id):
         content_type = 'application/octet-stream'
 
     response = HttpResponse(bytes(uploaded.file_content), content_type=content_type)
-    response['Content-Disposition'] = f'attachment; filename="{uploaded.file_name}"'
+    mode = request.GET.get('mode', 'download').lower()
+    if mode == 'view':
+        response['Content-Disposition'] = f'inline; filename="{uploaded.file_name}"'
+    else:
+        response['Content-Disposition'] = f'attachment; filename="{uploaded.file_name}"'
     return response
 
 
 def api_file_list(request):
     """Return a JSON list of all uploaded files (without heavy binary content)."""
     hostname_filter = request.GET.get('hostname', '').strip()
+    drive_filter = request.GET.get('drive', '').strip()
     search = request.GET.get('search', '').strip()
 
     qs = UploadedFile.objects.all()
     if hostname_filter and hostname_filter != 'all':
         qs = qs.filter(hostname=hostname_filter)
+    if drive_filter and drive_filter != 'all':
+        # Match 'D:', 'D:\', or 'D'
+        clean_drive = drive_filter.replace('\\', '').rstrip(':').upper()
+        qs = qs.filter(drive_letter__istartswith=clean_drive)
     if search:
         qs = qs.filter(file_name__icontains=search)
 

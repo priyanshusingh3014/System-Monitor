@@ -47,6 +47,8 @@
     const totalFilesValue = document.getElementById('total-files-value');
     const filesStorageValue = document.getElementById('files-storage-value');
     const filesDeviceSelect = document.getElementById('files-device-select');
+    const filesDriveSelect = document.getElementById('files-drive-select');
+    const driveTabsBar = document.getElementById('drive-tabs-bar');
     const filesSearchInput = document.getElementById('files-search-input');
     const filesEmptyState = document.getElementById('files-empty-state');
     const filesTableWrapper = document.getElementById('files-table-wrapper');
@@ -564,12 +566,44 @@
     // ============ FILES PAGE ============
 
     let selectedFilesDevice = 'all';
+    let selectedFilesDrive = 'all';
     let filesSearchQuery = '';
 
     if (filesDeviceSelect) {
         filesDeviceSelect.addEventListener('change', function () {
             selectedFilesDevice = this.value;
             if (latestData) updateFilesPage(latestData);
+        });
+    }
+
+    if (filesDriveSelect) {
+        filesDriveSelect.addEventListener('change', function () {
+            selectedFilesDrive = this.value;
+            syncDriveTabs(selectedFilesDrive);
+            if (latestData) updateFilesPage(latestData);
+        });
+    }
+
+    if (driveTabsBar) {
+        driveTabsBar.addEventListener('click', function (e) {
+            const pill = e.target.closest('.drive-tab-pill');
+            if (!pill) return;
+            selectedFilesDrive = pill.dataset.drive || 'all';
+            if (filesDriveSelect) filesDriveSelect.value = selectedFilesDrive;
+            syncDriveTabs(selectedFilesDrive);
+            if (latestData) updateFilesPage(latestData);
+        });
+    }
+
+    function syncDriveTabs(activeDrive) {
+        if (!driveTabsBar) return;
+        const pills = driveTabsBar.querySelectorAll('.drive-tab-pill');
+        pills.forEach(p => {
+            if (p.dataset.drive === activeDrive) {
+                p.classList.add('active');
+            } else {
+                p.classList.remove('active');
+            }
         });
     }
 
@@ -626,14 +660,23 @@
                 <td>${badge}</td>
                 <td style="color: var(--text-muted); font-size: 0.82rem;">${timeAgo(f.uploaded_at)}</td>
                 <td>
-                    <a href="/api/files/download/${f.id}/" class="btn-download-file" target="_blank" download>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Download
-                    </a>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <a href="/api/files/download/${f.id}/?mode=view" class="btn-view-file" data-file-id="${f.id}" data-file-name="${f.file_name}" data-file-ext="${f.file_extension || ''}" data-file-size="${formatBytes(f.file_size)}" target="_blank" title="View / Preview File">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            View
+                        </a>
+                        <a href="/api/files/download/${f.id}/" class="btn-download-file" target="_blank" download title="Download File">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Download
+                        </a>
+                    </div>
                 </td>
             </tr>
         `;
@@ -656,9 +699,49 @@
             }
         }
 
-        // Fetch files from API
+        // Discover active non-C drives from agents
+        const availableDrives = new Set();
+        agents.forEach(a => {
+            if (selectedFilesDevice === 'all' || a.hostname === selectedFilesDevice) {
+                (a.drives || []).forEach(d => {
+                    const letter = (d.device || d.mountpoint || '').toUpperCase().split(':')[0];
+                    if (letter && letter !== 'C' && letter.length === 1 && letter >= 'A' && letter <= 'Z') {
+                        availableDrives.add(`${letter}:`);
+                    }
+                });
+            }
+        });
+
+        // Ensure default drives like D: are always available
+        availableDrives.add('D:');
+
+        // Update filesDriveSelect options
+        if (filesDriveSelect) {
+            const currentDriveVal = filesDriveSelect.value || selectedFilesDrive;
+            let driveOptionsHtml = '<option value="all">All Drives</option>';
+            Array.from(availableDrives).sort().forEach(drv => {
+                driveOptionsHtml += `<option value="${drv}">${drv} Drive</option>`;
+            });
+            if (filesDriveSelect.innerHTML !== driveOptionsHtml) {
+                filesDriveSelect.innerHTML = driveOptionsHtml;
+                filesDriveSelect.value = currentDriveVal;
+            }
+        }
+
+        // Update driveTabsBar tabs
+        if (driveTabsBar) {
+            let tabsHtml = `<button class="drive-tab-pill ${selectedFilesDrive === 'all' ? 'active' : ''}" data-drive="all">All Drives</button>`;
+            Array.from(availableDrives).sort().forEach(drv => {
+                tabsHtml += `<button class="drive-tab-pill ${selectedFilesDrive === drv ? 'active' : ''}" data-drive="${drv}">💾 ${drv} Drive</button>`;
+            });
+            if (driveTabsBar.innerHTML !== tabsHtml) {
+                driveTabsBar.innerHTML = tabsHtml;
+            }
+        }
+
+        // Fetch files from API with device, drive, and search filters
         try {
-            let url = `/api/files/?hostname=${encodeURIComponent(selectedFilesDevice)}`;
+            let url = `/api/files/?hostname=${encodeURIComponent(selectedFilesDevice)}&drive=${encodeURIComponent(selectedFilesDrive)}`;
             if (filesSearchQuery) {
                 url += `&search=${encodeURIComponent(filesSearchQuery)}`;
             }
@@ -766,6 +849,98 @@
             });
         }
     }
+
+    // ============ FILE PREVIEW MODAL CONTROLLER ============
+    const previewModal = document.getElementById('file-preview-modal');
+    const previewCloseBtn = document.getElementById('preview-close-btn');
+    const previewFileName = document.getElementById('preview-file-name');
+    const previewFileMeta = document.getElementById('preview-file-meta');
+    const previewFileIcon = document.getElementById('preview-file-icon');
+    const previewModalBody = document.getElementById('preview-modal-body');
+    const previewOpenTabBtn = document.getElementById('preview-open-tab-btn');
+    const previewDownloadBtn = document.getElementById('preview-download-btn');
+
+    function closeFilePreview() {
+        if (previewModal) {
+            previewModal.style.display = 'none';
+            if (previewModalBody) previewModalBody.innerHTML = '<div class="preview-loading">Loading file preview...</div>';
+        }
+    }
+
+    if (previewModal) {
+        if (previewCloseBtn) {
+            previewCloseBtn.addEventListener('click', closeFilePreview);
+        }
+
+        previewModal.addEventListener('click', function (e) {
+            if (e.target === previewModal) {
+                closeFilePreview();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && previewModal.style.display === 'flex') {
+                closeFilePreview();
+            }
+        });
+    }
+
+    // Event delegation for View buttons in files table
+    document.addEventListener('click', function (e) {
+        const viewBtn = e.target.closest('.btn-view-file');
+        if (!viewBtn) return;
+
+        e.preventDefault();
+        const fileId = viewBtn.dataset.fileId;
+        const fileName = viewBtn.dataset.fileName || 'File';
+        const fileExt = (viewBtn.dataset.fileExt || '').toLowerCase();
+        const fileSize = viewBtn.dataset.fileSize || '';
+
+        if (!fileId || !previewModal) return;
+
+        const viewUrl = `/api/files/download/${fileId}/?mode=view`;
+        const downloadUrl = `/api/files/download/${fileId}/`;
+
+        if (previewFileName) previewFileName.textContent = fileName;
+        if (previewFileMeta) previewFileMeta.textContent = `${fileExt ? fileExt.toUpperCase() + ' • ' : ''}${fileSize}`;
+        if (previewFileIcon) previewFileIcon.textContent = getFileIcon(fileExt);
+        if (previewOpenTabBtn) previewOpenTabBtn.href = viewUrl;
+        if (previewDownloadBtn) previewDownloadBtn.href = downloadUrl;
+
+        previewModal.style.display = 'flex';
+        previewModalBody.innerHTML = '<div class="preview-loading">Loading file preview...</div>';
+
+        const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+        const textExts = ['.txt', '.py', '.js', '.html', '.css', '.json', '.md', '.csv', '.sql', '.sh', '.bat', '.ps1', '.ts', '.c', '.cpp', '.h', '.java'];
+
+        if (imageExts.includes(fileExt)) {
+            previewModalBody.innerHTML = `<img src="${viewUrl}" alt="${fileName}" style="max-width:100%; max-height:70vh; object-fit:contain;" />`;
+        } else if (fileExt === '.pdf') {
+            previewModalBody.innerHTML = `<iframe src="${viewUrl}" title="${fileName}" style="width:100%; height:70vh; border:none;"></iframe>`;
+        } else if (textExts.includes(fileExt)) {
+            fetch(viewUrl)
+                .then(r => r.text())
+                .then(text => {
+                    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    previewModalBody.innerHTML = `<pre>${escaped}</pre>`;
+                })
+                .catch(err => {
+                    previewModalBody.innerHTML = `<div style="text-align:center; color:#EF4444;"><p>Unable to load text preview.</p><a href="${viewUrl}" target="_blank" class="btn-preview-top" style="margin-top:10px;">Open in New Tab</a></div>`;
+                });
+        } else {
+            previewModalBody.innerHTML = `
+                <div style="text-align:center; padding: 30px 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 12px;">${getFileIcon(fileExt)}</div>
+                    <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 1.05rem;">${fileName}</h4>
+                    <p style="color: #6B7280; font-size: 0.85rem; margin-bottom: 18px;">Direct inline preview is not supported for this file type.</p>
+                    <div style="display:flex; justify-content:center; gap:10px;">
+                        <a href="${viewUrl}" target="_blank" class="btn-preview-top">Open in Browser</a>
+                        <a href="${downloadUrl}" class="btn-preview-top btn-preview-download" download>Download File</a>
+                    </div>
+                </div>
+            `;
+        }
+    });
 
     // Initial fetch
     fetchAgents();

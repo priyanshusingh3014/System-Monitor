@@ -110,7 +110,25 @@ IGNORED_PATTERNS = [
 ]
 
 
+def is_ignored_dir(path):
+    dirname = os.path.basename(path)
+    dn_lower = dirname.lower()
+
+    if dn_lower.startswith('.') or dn_lower.startswith('$') or dn_lower.startswith('{'):
+        return True
+
+    path_lower = path.lower()
+    for pattern in IGNORED_PATTERNS:
+        if pattern.lower() in path_lower:
+            return True
+
+    return False
+
+
 def is_ignored(path):
+    if os.path.isdir(path):
+        return is_ignored_dir(path)
+
     filename = os.path.basename(path)
     fn_lower = filename.lower()
 
