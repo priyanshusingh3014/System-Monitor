@@ -950,81 +950,90 @@ def install_to_startup():
 
         is_installed_path = (os.path.normpath(current_exe).lower() == os.path.normpath(target_exe).lower())
 
-        # If running installer from outside AppData directory
-        if not is_installed_path:
-            is_silent = bool('--silent' in sys.argv or '--reconnect' in sys.argv or '--quiet' in sys.argv or '--yes' in sys.argv)
-            if not is_silent:
-                if os.path.exists(target_exe):
-                    res = show_message_box(
-                        "Uninstall System Drive Agent",
-                        "System Drive Agent is already installed on this PC.\n\nDo you want to uninstall System Drive Agent from your PC?",
-                        0x00000004 | 0x00000020  # Yes / No
-                    )
-                    if res == 6:  # User clicked YES
-                        perform_uninstallation()
-                    sys.exit(0)
+        # If already running the background installed target executable in AppData, continue to background loop
+        if is_installed_path:
+            return
 
+        # If running installer from outside AppData directory
+        is_silent = bool('--silent' in sys.argv or '--reconnect' in sys.argv or '--quiet' in sys.argv or '--yes' in sys.argv)
+        if not is_silent:
+            # -------------------------------------------------------------
+            # CASE 1: SECOND RUN -> System Drive Agent is ALREADY INSTALLED
+            # -------------------------------------------------------------
+            if os.path.exists(target_exe) or os.path.exists(app_dir):
                 res = show_message_box(
-                    "System Drive Agent Setup",
-                    "Do you want to install System Drive Agent on this PC?",
+                    "Uninstall System Drive Agent",
+                    "System Drive Agent is already installed on this PC.\n\nDo you want to uninstall System Drive Agent from your PC?",
                     0x00000004 | 0x00000020  # Yes / No
                 )
-                if res != 6:  # User clicked NO or closed window
-                    sys.exit(0)
+                if res == 6:  # User clicked YES
+                    perform_uninstallation()
+                sys.exit(0)
 
-            # Kill any existing background agent process so file overwrite succeeds cleanly
-            kill_running_agent()
-
-            # Copy executable & config.json to AppData
-            if not os.path.exists(app_dir):
-                os.makedirs(app_dir, exist_ok=True)
-
-            try:
-                shutil.copy2(current_exe, target_exe)
-                src_cfg = get_config_file_path()
-                if os.path.exists(src_cfg):
-                    shutil.copy2(src_cfg, target_cfg)
-                else:
-                    with open(target_cfg, "w") as f:
-                        json.dump({"server_url": BASE_URL}, f, indent=2)
-            except Exception as e:
-                print(f"[INSTALL] File copy warning: {e}")
-
-            # Add to HKCU Windows Startup Registry Key
-            try:
-                run_key_path = r'Software\Microsoft\Windows\CurrentVersion\Run'
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key_path, 0, winreg.KEY_SET_VALUE)
-                winreg.SetValueEx(key, 'SystemMonitorAgent', 0, winreg.REG_SZ, f'"{target_exe}"')
-                winreg.CloseKey(key)
-            except Exception:
-                pass
-
-            # Register under Windows Control Panel Programs and Features
-            try:
-                register_uninstaller(target_exe, app_dir)
-            except Exception:
-                pass
-
-            # Show Success notification
-            show_message_box(
-                "Drive Agent Installed",
-                "Drive Agent has been installed successfully and is now monitoring your PC in the background.",
-                0x00000040
+            # -------------------------------------------------------------
+            # CASE 2: FIRST RUN -> System Drive Agent is NOT YET INSTALLED
+            # -------------------------------------------------------------
+            res = show_message_box(
+                "System Drive Agent Setup",
+                "Do you want to install System Drive Agent on this PC?",
+                0x00000004 | 0x00000020  # Yes / No
             )
+            if res != 6:  # User clicked NO or closed window
+                sys.exit(0)
 
-            # Launch installed target executable detached in background and exit installer
+        # 1. Kill any existing background agent process so file overwrite succeeds cleanly
+        kill_running_agent()
+
+        # 2. Copy executable & config.json to AppData
+        os.makedirs(app_dir, exist_ok=True)
+        shutil.copy2(current_exe, target_exe)
+
+        src_cfg = get_config_file_path()
+        if os.path.exists(src_cfg):
             try:
-                CREATE_NO_WINDOW = 0x08000000
-                subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=CREATE_NO_WINDOW)
-            except Exception as e:
-                print(f"[INSTALL] Launch warning: {e}")
+                shutil.copy2(src_cfg, target_cfg)
+            except Exception:
+                pass
+        if not os.path.exists(target_cfg):
+            with open(target_cfg, "w") as f:
+                json.dump({"server_url": BASE_URL}, f, indent=2)
 
-            sys.exit(0)
+        # 3. Add to HKCU Windows Startup Registry Key
+        try:
+            run_key_path = r'Software\Microsoft\Windows\CurrentVersion\Run'
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key_path, 0, winreg.KEY_SET_VALUE)
+            winreg.SetValueEx(key, 'SystemMonitorAgent', 0, winreg.REG_SZ, f'"{target_exe}"')
+            winreg.CloseKey(key)
+        except Exception:
+            pass
+
+        # 4. Register under Windows Control Panel Programs and Features
+        try:
+            register_uninstaller(target_exe, app_dir)
+        except Exception:
+            pass
+
+        # 5. Show Success notification
+        show_message_box(
+            "Drive Agent Installed",
+            "Drive Agent has been installed successfully and is now monitoring your PC in the background.",
+            0x00000040
+        )
+
+        # 6. Launch installed target executable detached in background and exit installer
+        try:
+            CREATE_NO_WINDOW = 0x08000000
+            subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=CREATE_NO_WINDOW)
+        except Exception as e:
+            print(f"[INSTALL] Launch warning: {e}")
+
+        sys.exit(0)
 
     except SystemExit:
         sys.exit(0)
     except Exception as e:
-        print(f"[INSTALL] Notice: {e}")
+        show_message_box("Install Error", f"Installation error:\n\n{e}", 0x00000010)
+        sys.exit(1)
 
 
 def main():
