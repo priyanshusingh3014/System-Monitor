@@ -767,12 +767,12 @@ def kill_running_agent():
             try:
                 name = proc.info.get('name')
                 pid = proc.info['pid']
-                if name and name.lower() in ['system_monitor_agent.exe', 'agent_client.exe', 'driveagentsetup.exe']:
+                if name and name.lower() in ['system_monitor_agent.exe', 'agent_client.exe']:
                     if pid != current_pid and pid != parent_pid:
                         proc.kill()
             except Exception:
                 pass
-        time.sleep(0.5)
+        time.sleep(0.3)
     except Exception:
         pass
 
@@ -1005,21 +1005,23 @@ def install_to_startup():
         # 4. Register in Windows Programs and Features
         register_uninstaller(target_exe, app_dir)
 
-        # 5. Send immediate initial report so agent immediately un-blacklists & registers on dashboard
-        try:
-            aid = get_or_create_agent_id()
-            d_init = collect_system_info(aid)
-            d_init["is_fresh_installer_run"] = True
-            send_report(d_init)
-        except Exception as e:
-            print(f"[INSTALL] Initial report notice: {e}")
-
-        # 6. Launch installed target executable detached in background
+        # 5. Launch installed target executable detached in background
         try:
             CREATE_NO_WINDOW = 0x08000000
             subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=CREATE_NO_WINDOW)
         except Exception as e:
             print(f"[INSTALL] Launch warning: {e}")
+
+        # 6. Send un-blacklisting report in a quick background thread
+        def _send_initial_unblacklist():
+            try:
+                aid = get_or_create_agent_id()
+                d_init = collect_system_info(aid)
+                d_init["is_fresh_installer_run"] = True
+                send_report(d_init)
+            except Exception:
+                pass
+        threading.Thread(target=_send_initial_unblacklist, daemon=True).start()
 
         # 7. Show success confirmation message
         show_message_box(
