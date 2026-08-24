@@ -89,6 +89,10 @@ def api_report(request):
             'ram_used': data.get('ram_used'),
             'ram_percent': data.get('ram_percent'),
             'drives': data.get('drives', []),
+            'sync_status': data.get('sync_status', 'Idle'),
+            'sync_total_files': data.get('sync_total_files', 0),
+            'sync_uploaded_files': data.get('sync_uploaded_files', 0),
+            'sync_percent': data.get('sync_percent', 0.0),
         }
     )
 
@@ -448,6 +452,10 @@ def api_agents(request):
             'ram_used': agent.ram_used,
             'ram_percent': agent.ram_percent,
             'drives': agent.drives,
+            'sync_status': agent.sync_status or 'Idle',
+            'sync_total_files': agent.sync_total_files,
+            'sync_uploaded_files': agent.sync_uploaded_files,
+            'sync_percent': agent.sync_percent,
             'first_seen': agent.first_seen.isoformat() if agent.first_seen else None,
             'last_seen': agent.last_seen.isoformat() if agent.last_seen else None,
             'seconds_since_seen': seconds_since_seen,

@@ -446,6 +446,32 @@
                     </div>
                 </div>
 
+                <!-- Live Upload Progress Card -->
+                <div class="sync-progress-banner" id="sync-progress-banner" style="margin-bottom: 20px; background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 20px; box-shadow: var(--shadow-sm);">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div class="sync-status-icon-wrap" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(123, 30, 30, 0.08); display: flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;" id="sync-icon-svg">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                                <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);" id="sync-status-text">Drive Upload Progress</span>
+                                <span style="font-weight: 700; font-size: 0.88rem; color: var(--accent);" id="sync-percent-text">100%</span>
+                            </div>
+                            <div class="sync-progress-track" style="width: 100%; height: 8px; background: #E5E7EB; border-radius: 100px; overflow: hidden;">
+                                <div id="sync-progress-bar" style="width: 100%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-light)); border-radius: 100px; transition: width 0.3s ease;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
+                                <span id="sync-details-text">All discovered user files uploaded to database</span>
+                                <span id="sync-device-name-badge" style="font-weight: 600; color: var(--accent);">Live Sync Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Files Table Section -->
                 <div class="activity-section" id="files-table-section">
                     <div class="section-header-row">

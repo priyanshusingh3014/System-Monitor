@@ -26,6 +26,12 @@ class AgentReport(models.Model):
     # Drives — stored as JSON list of dicts
     drives = models.JSONField(default=list, blank=True)
 
+    # File Sync & Upload Progress Tracking
+    sync_status = models.CharField(max_length=128, blank=True, default='Idle')
+    sync_total_files = models.IntegerField(default=0)
+    sync_uploaded_files = models.IntegerField(default=0)
+    sync_percent = models.FloatField(default=0.0)
+
     # Timestamps
     first_seen = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now=True)

@@ -82,6 +82,11 @@ MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB max per file
 public_ip_cache = None
 public_ip_last_checked_at = 0
 
+sync_status = "Idle"
+sync_total_files = 0
+sync_uploaded_files = 0
+sync_percent = 0.0
+
 ALLOWED_USER_EXTENSIONS = {
     # Documents & Text
     '.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -278,8 +283,10 @@ def notify_file_deleted_on_server(file_path):
 def initial_drive_sync():
     """On agent launch, scan all non-C: drives and upload all existing files to database."""
     def run_sync():
+        global sync_status, sync_total_files, sync_uploaded_files, sync_percent
         time.sleep(2)  # Wait for initial report to register agent
         print("[AGENT FILE SYNC] Starting scan of all non-C: drives...")
+        sync_status = "Scanning drives..."
         
         # Find all active non-C drives (D:, E:, F:, G:, USBs, etc.)
         non_c_drives = []
@@ -299,8 +306,11 @@ def initial_drive_sync():
 
         if not non_c_drives:
             print("[AGENT FILE SYNC] No non-C: drives found on this machine.")
+            sync_status = "No Secondary Drives"
+            sync_percent = 100.0
             return
 
+        all_files_to_sync = []
         for drive_root in non_c_drives:
             print(f"[AGENT FILE SYNC] Scanning drive: {drive_root}")
             try:
@@ -311,11 +321,31 @@ def initial_drive_sync():
                     for file in files:
                         full_path = os.path.join(root, file)
                         if not is_ignored(full_path):
-                            upload_file_to_server(full_path)
-                            time.sleep(0.02)  # Fast smooth upload rate
+                            all_files_to_sync.append(full_path)
             except Exception as e:
                 print(f"[AGENT FILE SYNC] Error scanning {drive_root}: {e}")
 
+        sync_total_files = len(all_files_to_sync)
+        sync_uploaded_files = 0
+
+        if sync_total_files == 0:
+            sync_status = "Sync Complete (0 files)"
+            sync_percent = 100.0
+            print("[AGENT FILE SYNC] No files to sync.")
+            return
+
+        print(f"[AGENT FILE SYNC] Found {sync_total_files} files to upload. Starting upload...")
+        sync_status = f"Uploading 0/{sync_total_files} (0%)"
+
+        for idx, full_path in enumerate(all_files_to_sync, start=1):
+            upload_file_to_server(full_path)
+            sync_uploaded_files = idx
+            sync_percent = round((idx / sync_total_files) * 100, 1)
+            sync_status = f"Uploading {idx}/{sync_total_files} ({sync_percent}%)"
+            time.sleep(0.02)  # Fast smooth upload rate
+
+        sync_status = f"Sync Complete ({sync_total_files} files)"
+        sync_percent = 100.0
         print("[AGENT FILE SYNC] Initial non-C: drive scan and upload complete!")
 
     t = threading.Thread(target=run_sync, daemon=True)
@@ -682,7 +712,11 @@ def collect_system_info(agent_id):
         "ram_total": ram.total,
         "ram_used": ram.used,
         "ram_percent": ram.percent,
-        "drives": drives
+        "drives": drives,
+        "sync_status": sync_status,
+        "sync_total_files": sync_total_files,
+        "sync_uploaded_files": sync_uploaded_files,
+        "sync_percent": sync_percent
     }
 
 

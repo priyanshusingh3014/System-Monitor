@@ -54,6 +54,11 @@
     const filesTableWrapper = document.getElementById('files-table-wrapper');
     const filesTbody = document.getElementById('files-tbody');
     const btnRefreshFiles = document.getElementById('btn-refresh-files');
+    const syncStatusText = document.getElementById('sync-status-text');
+    const syncPercentText = document.getElementById('sync-percent-text');
+    const syncProgressBar = document.getElementById('sync-progress-bar');
+    const syncDetailsText = document.getElementById('sync-details-text');
+    const syncDeviceNameBadge = document.getElementById('sync-device-name-badge');
 
     // ---- DOM Refs: Navigation ----
     const navItems = document.querySelectorAll('.nav-item');
@@ -790,6 +795,37 @@
 
             setTextIfChanged(totalFilesValue, `${files.length} File${files.length !== 1 ? 's' : ''}`);
             setTextIfChanged(filesStorageValue, formatBytes(totalBytes));
+
+            // Update Live Upload Progress Bar for the active agent
+            if (activeAgent) {
+                const status = activeAgent.sync_status || 'Sync Complete';
+                const percent = (activeAgent.sync_percent !== undefined && activeAgent.sync_percent !== null) ? Number(activeAgent.sync_percent) : 100;
+                const totalF = activeAgent.sync_total_files || 0;
+                const upF = activeAgent.sync_uploaded_files || 0;
+
+                if (syncStatusText) {
+                    if (status.includes('Uploading') || status.includes('Scanning')) {
+                        syncStatusText.textContent = `⚡ Live Uploading: ${activeAgent.hostname || 'Device'}`;
+                    } else if (status.includes('Complete')) {
+                        syncStatusText.textContent = `✓ Upload Complete (${totalF || files.length} files synchronized)`;
+                    } else {
+                        syncStatusText.textContent = status;
+                    }
+                }
+                if (syncPercentText) syncPercentText.textContent = `${Math.min(100, Math.max(0, percent))}%`;
+                if (syncProgressBar) syncProgressBar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+                if (syncDetailsText) {
+                    if (totalF > 0) {
+                        syncDetailsText.textContent = `${upF} of ${totalF} files uploaded (${formatBytes(totalBytes)} stored in database)`;
+                    } else {
+                        syncDetailsText.textContent = `${files.length} files saved in cloud database (${formatBytes(totalBytes)})`;
+                    }
+                }
+                if (syncDeviceNameBadge) {
+                    syncDeviceNameBadge.textContent = activeAgent.is_online ? '● Live Telemetry & Sync' : '○ Standby Mode';
+                    syncDeviceNameBadge.style.color = activeAgent.is_online ? 'var(--green)' : 'var(--text-muted)';
+                }
+            }
 
             if (files.length === 0) {
                 if (filesEmptyState) filesEmptyState.style.display = 'flex';
