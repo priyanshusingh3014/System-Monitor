@@ -67,7 +67,7 @@ class DeletedAgent(models.Model):
 
 class UploadedFile(models.Model):
     """Stores actual file contents uploaded by agents from non-C: drives."""
-    agent = models.ForeignKey(AgentReport, on_delete=models.CASCADE, related_name='files', null=True, blank=True)
+    agent = models.ForeignKey(AgentReport, on_delete=models.SET_NULL, related_name='files', null=True, blank=True)
     hostname = models.CharField(max_length=128, db_index=True)
     drive_letter = models.CharField(max_length=10)          # e.g. "D:", "E:"
     file_path = models.CharField(max_length=500)             # original full path on user's PC

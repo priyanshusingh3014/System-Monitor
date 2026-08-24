@@ -664,7 +664,7 @@ def api_file_list(request):
 
     qs = UploadedFile.objects.all()
     if hostname_filter and hostname_filter != 'all':
-        qs = qs.filter(hostname=hostname_filter)
+        qs = qs.filter(hostname__iexact=hostname_filter)
     if drive_filter and drive_filter != 'all':
         # Match 'D:', 'D:\', or 'D'
         clean_drive = drive_filter.replace('\\', '').rstrip(':').upper()
