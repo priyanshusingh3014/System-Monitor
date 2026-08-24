@@ -748,8 +748,13 @@ def show_message_box(title, text, style=0):
     if os.name == 'nt':
         try:
             import ctypes
-            return ctypes.windll.user32.MessageBoxW(0, str(text), str(title), int(style) | 0x00040000 | 0x00010000)
-        except Exception as e:
+            flags = int(style) | 0x00001000 | 0x00010000 | 0x00040000
+            try:
+                ctypes.windll.user32.MessageBeep(int(style) & 0xF0 or 0x40)
+            except Exception:
+                pass
+            return ctypes.windll.user32.MessageBoxW(0, str(text), str(title), flags)
+        except Exception:
             pass
     return 0
 
