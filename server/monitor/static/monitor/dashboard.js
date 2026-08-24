@@ -565,13 +565,14 @@
 
     // ============ FILES PAGE ============
 
-    let selectedFilesDevice = 'all';
-    let selectedFilesDrive = 'all';
+    let selectedFilesDevice = '';
+    let selectedFilesDrive = '';
     let filesSearchQuery = '';
 
     if (filesDeviceSelect) {
         filesDeviceSelect.addEventListener('change', function () {
             selectedFilesDevice = this.value;
+            selectedFilesDrive = ''; // Reset drive selection to first drive of new device
             if (latestData) updateFilesPage(latestData);
         });
     }
@@ -661,50 +662,68 @@
     async function updateFilesPage(data) {
         const agents = (data && data.agents) ? data.agents : [];
 
-        // Update filesDeviceSelect options
+        // Auto-select first device if none selected or selection invalid
+        const validHostnames = agents.map(a => a.hostname).filter(Boolean);
+        if ((!selectedFilesDevice || !validHostnames.includes(selectedFilesDevice)) && validHostnames.length > 0) {
+            selectedFilesDevice = validHostnames[0];
+        }
+
+        // Update filesDeviceSelect options (Only genuine devices, no 'All Devices')
         if (filesDeviceSelect) {
-            const currentVal = filesDeviceSelect.value;
-            let optionsHtml = '<option value="all">All Devices</option>';
-            agents.forEach(a => {
-                const h = a.hostname || 'Unknown';
-                optionsHtml += `<option value="${h}">${h}</option>`;
-            });
+            let optionsHtml = '';
+            if (validHostnames.length === 0) {
+                optionsHtml = '<option value="" disabled selected>No Devices Connected</option>';
+            } else {
+                agents.forEach(a => {
+                    const h = a.hostname || 'Unknown';
+                    const isSel = (h === selectedFilesDevice) ? 'selected' : '';
+                    optionsHtml += `<option value="${h}" ${isSel}>💻 ${h}</option>`;
+                });
+            }
             if (filesDeviceSelect.innerHTML !== optionsHtml) {
                 filesDeviceSelect.innerHTML = optionsHtml;
-                filesDeviceSelect.value = currentVal;
+            }
+            if (selectedFilesDevice) {
+                filesDeviceSelect.value = selectedFilesDevice;
             }
         }
 
-        // Discover active non-C drives from agents
+        // Discover active non-C drives from the currently selected agent
         const availableDrives = new Set();
-        agents.forEach(a => {
-            if (selectedFilesDevice === 'all' || a.hostname === selectedFilesDevice) {
-                (a.drives || []).forEach(d => {
-                    const letter = (d.device || d.mountpoint || '').toUpperCase().split(':')[0];
-                    if (letter && letter !== 'C' && letter.length === 1 && letter >= 'A' && letter <= 'Z') {
-                        availableDrives.add(`${letter}:`);
-                    }
-                });
-            }
-        });
+        const activeAgent = agents.find(a => a.hostname === selectedFilesDevice) || agents[0];
+        if (activeAgent && activeAgent.drives) {
+            activeAgent.drives.forEach(d => {
+                const letter = (d.device || d.mountpoint || '').toUpperCase().split(':')[0];
+                if (letter && letter !== 'C' && letter.length === 1 && letter >= 'A' && letter <= 'Z') {
+                    availableDrives.add(`${letter}:`);
+                }
+            });
+        }
 
-        // Ensure default drives like D: are always available
-        availableDrives.add('D:');
+        // Fallback to D: if no secondary drives reported
+        if (availableDrives.size === 0) {
+            availableDrives.add('D:');
+        }
 
-        // Update filesDriveSelect options
+        const sortedDrives = Array.from(availableDrives).sort();
+        if (!selectedFilesDrive || !sortedDrives.includes(selectedFilesDrive)) {
+            selectedFilesDrive = sortedDrives[0];
+        }
+
+        // Update filesDriveSelect options (Only genuine drive names, no 'All Drives')
         if (filesDriveSelect) {
-            const currentDriveVal = filesDriveSelect.value || selectedFilesDrive;
-            let driveOptionsHtml = '<option value="all">📁 All Drives</option>';
-            Array.from(availableDrives).sort().forEach(drv => {
-                driveOptionsHtml += `<option value="${drv}">💾 ${drv} Drive</option>`;
+            let driveOptionsHtml = '';
+            sortedDrives.forEach(drv => {
+                const isSel = (drv === selectedFilesDrive) ? 'selected' : '';
+                driveOptionsHtml += `<option value="${drv}" ${isSel}>💾 ${drv} Drive</option>`;
             });
             if (filesDriveSelect.innerHTML !== driveOptionsHtml) {
                 filesDriveSelect.innerHTML = driveOptionsHtml;
-                filesDriveSelect.value = currentDriveVal;
             }
+            filesDriveSelect.value = selectedFilesDrive;
         }
 
-        // Fetch files from API with device, drive, and search filters
+        // Fetch files from API for the selected device and drive
         try {
             let url = `/api/files/?hostname=${encodeURIComponent(selectedFilesDevice)}&drive=${encodeURIComponent(selectedFilesDrive)}`;
             if (filesSearchQuery) {
