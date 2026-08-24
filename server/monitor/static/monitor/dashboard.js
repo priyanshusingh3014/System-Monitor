@@ -242,33 +242,52 @@
         e.preventDefault();
 
         const pageId = pageMap[navItem.id];
-        if (!pageId) return;
+        if (pageId) {
+            navigateToPage(pageId);
+        }
+    });
 
+    function navigateToPage(pageId) {
         const targetPage = document.getElementById(pageId);
         if (!targetPage) return;
 
-        // Update active nav item
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        navItem.classList.add('active');
+        let matchingNavId = null;
+        for (const [nId, pId] of Object.entries(pageMap)) {
+            if (pId === pageId) {
+                matchingNavId = nId;
+                break;
+            }
+        }
 
-        // Hide ALL page views
-        document.querySelectorAll('.page-view').forEach(p => {
-            p.classList.remove('active');
-            p.style.display = 'none';
+        document.querySelectorAll('.nav-item').forEach(n => {
+            if (matchingNavId && n.id === matchingNavId) {
+                n.classList.add('active');
+            } else {
+                n.classList.remove('active');
+            }
         });
 
-        // Show target page
-        targetPage.style.display = 'block';
-        targetPage.classList.add('active');
+        document.querySelectorAll('.page-view').forEach(p => {
+            if (p.id === pageId) {
+                p.style.display = 'block';
+                p.classList.add('active');
+            } else {
+                p.style.display = 'none';
+                p.classList.remove('active');
+            }
+        });
 
-        // Re-render with latest data
+        try {
+            localStorage.setItem('sm_active_page', pageId);
+        } catch (e) {}
+
         if (latestData) {
             if (pageId === 'page-dashboard') updateDashboard(latestData);
             if (pageId === 'page-devices') updateDevicesPage(latestData);
             if (pageId === 'page-storage') updateStoragePage(latestData);
             if (pageId === 'page-files') updateFilesPage(latestData);
         }
-    });
+    }
 
     // ---- Render Recent Activity Row ----
     function renderActivityRow(act) {
@@ -569,10 +588,19 @@
     let selectedFilesDrive = '';
     let filesSearchQuery = '';
 
+    try {
+        selectedFilesDevice = localStorage.getItem('sm_files_device') || '';
+        selectedFilesDrive = localStorage.getItem('sm_files_drive') || '';
+    } catch (e) {}
+
     if (filesDeviceSelect) {
         filesDeviceSelect.addEventListener('change', function () {
             selectedFilesDevice = this.value;
             selectedFilesDrive = ''; // Reset drive selection to first drive of new device
+            try {
+                localStorage.setItem('sm_files_device', selectedFilesDevice);
+                localStorage.setItem('sm_files_drive', '');
+            } catch (e) {}
             if (latestData) updateFilesPage(latestData);
         });
     }
@@ -580,6 +608,9 @@
     if (filesDriveSelect) {
         filesDriveSelect.addEventListener('change', function () {
             selectedFilesDrive = this.value;
+            try {
+                localStorage.setItem('sm_files_drive', selectedFilesDrive);
+            } catch (e) {}
             if (latestData) updateFilesPage(latestData);
         });
     }
@@ -940,6 +971,14 @@
             `;
         }
     });
+
+    // Restore saved active page on page refresh
+    try {
+        const savedPage = localStorage.getItem('sm_active_page');
+        if (savedPage && savedPage !== 'page-dashboard') {
+            navigateToPage(savedPage);
+        }
+    } catch (e) {}
 
     // Initial fetch
     fetchAgents();
