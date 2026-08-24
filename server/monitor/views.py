@@ -672,8 +672,8 @@ def api_file_list(request):
     if search:
         qs = qs.filter(file_name__icontains=search)
 
-    # Limit to 500 most recent files
-    qs = qs.order_by('-uploaded_at')[:500]
+    # Limit to 5000 most recent files
+    qs = qs.order_by('-uploaded_at')[:5000]
 
     files_data = []
     for f in qs:

