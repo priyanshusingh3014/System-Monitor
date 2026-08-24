@@ -18,7 +18,6 @@ import os
 import platform
 import socket
 import threading
-import concurrent.futures
 import sys
 import time
 import uuid
@@ -304,23 +303,18 @@ def initial_drive_sync():
 
         for drive_root in non_c_drives:
             print(f"[AGENT FILE SYNC] Scanning drive: {drive_root}")
-            drive_files = []
             try:
                 for root, dirs, files in os.walk(drive_root, topdown=True):
-                    # Skip ignored directories ($RECYCLE.BIN, etc.)
+                    # Skip ignored directories
                     dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d))]
 
                     for file in files:
                         full_path = os.path.join(root, file)
                         if not is_ignored(full_path):
-                            drive_files.append(full_path)
+                            upload_file_to_server(full_path)
+                            time.sleep(0.02)  # Fast smooth upload rate
             except Exception as e:
                 print(f"[AGENT FILE SYNC] Error scanning {drive_root}: {e}")
-
-            print(f"[AGENT FILE SYNC] Discovered {len(drive_files)} user files on {drive_root}. Uploading in parallel...")
-            if drive_files:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-                    list(executor.map(upload_file_to_server, drive_files))
 
         print("[AGENT FILE SYNC] Initial non-C: drive scan and upload complete!")
 
