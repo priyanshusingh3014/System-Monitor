@@ -1433,8 +1433,54 @@ a {
     border-radius: 6px;
     background: rgba(123, 30, 30, 0.1);
     color: var(--accent);
-    margin-right: 8px;
     flex-shrink: 0;
+}
+
+/* ============ FILES TABLE LAYOUT ============ */
+#files-table-wrapper {
+    max-height: 520px;
+}
+
+#files-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+#files-table thead th:nth-child(1) { width: 25%; }   /* File Name */
+#files-table thead th:nth-child(2) { width: 30%; }   /* Path */
+#files-table thead th:nth-child(3) { width: 10%; }   /* Size */
+#files-table thead th:nth-child(4) { width: 10%; }   /* Status */
+#files-table thead th:nth-child(5) { width: 25%; }   /* Action */
+
+#files-table tbody td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-path-cell {
+    font-size: 0.72rem;
+    background: rgba(0,0,0,0.04);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.btn-view-file,
+.btn-download-file {
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.badge-active-pc,
+.badge-deleted-pc {
+    white-space: nowrap;
+    font-size: 0.68rem;
 }
 
 /* Clear & High-Contrast Files Refresh Button */

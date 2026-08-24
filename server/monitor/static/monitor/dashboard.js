@@ -648,36 +648,40 @@
     function renderFileRow(f) {
         const isDeleted = f.is_deleted_on_client;
         const badge = isDeleted
-            ? `<span class="badge-deleted-pc">⚠️ Deleted from PC (Cloud Intact)</span>`
-            : `<span class="badge-active-pc">● Active on PC</span>`;
+            ? `<span class="badge-deleted-pc">⚠️ Deleted</span>`
+            : `<span class="badge-active-pc">● Active</span>`;
+
+        // Truncate long paths to last 2 folders + filename
+        const pathParts = (f.file_path || '').replace(/\\/g, '/').split('/');
+        const shortPath = pathParts.length > 3
+            ? pathParts[0] + '/…/' + pathParts.slice(-2).join('/')
+            : f.file_path;
 
         return `
             <tr>
                 <td>
-                    <div style="display:flex; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px;">
                         <span class="file-icon-badge">${getFileIcon(f.file_extension)}</span>
-                        <div>
-                            <strong style="color: var(--text-primary); font-size: 0.88rem;">${f.file_name}</strong>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">${f.file_extension ? f.file_extension.toUpperCase() + ' File' : 'File'}</div>
+                        <div style="min-width:0;">
+                            <strong style="color: var(--text-primary); font-size: 0.84rem; display:block; overflow:hidden; text-overflow:ellipsis; max-width:180px;">${f.file_name}</strong>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">${f.file_extension ? f.file_extension.toUpperCase() + ' File' : 'File'} • ${f.hostname}</div>
                         </div>
                     </div>
                 </td>
-                <td><span style="font-weight:600; color: var(--text-primary);">${f.hostname}</span></td>
-                <td><code style="font-size: 0.78rem; background: rgba(0,0,0,0.04); padding: 2px 6px; border-radius: 4px; color: var(--accent);">${f.file_path}</code></td>
+                <td><code class="file-path-cell" title="${f.file_path}">${shortPath}</code></td>
                 <td><strong style="color: var(--text-primary);">${formatBytes(f.file_size)}</strong></td>
                 <td>${badge}</td>
-                <td style="color: var(--text-muted); font-size: 0.82rem;">${timeAgo(f.uploaded_at)}</td>
                 <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <a href="/api/files/download/${f.id}/?mode=view" class="btn-view-file" data-file-id="${f.id}" data-file-name="${f.file_name}" data-file-ext="${f.file_extension || ''}" data-file-size="${formatBytes(f.file_size)}" target="_blank" title="View / Preview File">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;">
+                    <div style="display:flex; align-items:center; gap:5px; flex-wrap:nowrap;">
+                        <a href="/api/files/download/${f.id}/?mode=view" class="btn-view-file" data-file-id="${f.id}" data-file-name="${f.file_name}" data-file-ext="${f.file_extension || ''}" data-file-size="${formatBytes(f.file_size)}" target="_blank" title="View">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                 <circle cx="12" cy="12" r="3"></circle>
                             </svg>
                             View
                         </a>
-                        <a href="/api/files/download/${f.id}/" class="btn-download-file" target="_blank" download title="Download File">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;">
+                        <a href="/api/files/download/${f.id}/" class="btn-download-file" target="_blank" download title="Download">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="7 10 12 15 17 10"></polyline>
                                 <line x1="12" y1="15" x2="12" y2="3"></line>
