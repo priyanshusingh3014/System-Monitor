@@ -431,19 +431,11 @@
                         <span class="stat-card-value" id="files-storage-value">0 MB</span>
                     </div>
                     <div class="stat-card dark" id="card-files-filter">
-                        <span class="stat-card-label">Filter Device &amp; Drive</span>
+                        <span class="stat-card-label">Filter Device &amp; Search</span>
                         <div class="files-filter-controls">
-                            <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-                                <select id="files-device-select" class="device-filter-dropdown" style="flex: 1;">
-                                    <option value="all">All Devices</option>
-                                </select>
-                                <select id="files-drive-select" class="device-filter-dropdown" style="flex: 1;">
-                                    <option value="all">All Drives</option>
-                                    <option value="D:">D: Drive</option>
-                                    <option value="E:">E: Drive</option>
-                                    <option value="F:">F: Drive</option>
-                                </select>
-                            </div>
+                            <select id="files-device-select" class="device-filter-dropdown" style="margin-bottom: 6px;">
+                                <option value="all">All Devices</option>
+                            </select>
                             <input type="text" id="files-search-input" class="files-search-box" placeholder="Search file name..." />
                         </div>
                     </div>
@@ -454,11 +446,13 @@
                     <div class="section-header-row" style="flex-wrap: wrap; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
                             <h3 class="section-title" style="margin: 0;">Archived Drive Files</h3>
-                            <div class="drive-tabs-bar" id="drive-tabs-bar">
-                                <button class="drive-tab-pill active" data-drive="all">All Drives</button>
-                                <button class="drive-tab-pill" data-drive="D:">💾 D: Drive</button>
-                                <button class="drive-tab-pill" data-drive="E:">💾 E: Drive</button>
-                                <button class="drive-tab-pill" data-drive="F:">💾 F: Drive</button>
+                            <div class="drive-dropdown-wrap">
+                                <select id="files-drive-select" class="drive-selector-dropdown" title="Select Drive">
+                                    <option value="all">📁 All Drives</option>
+                                    <option value="D:">💾 D: Drive</option>
+                                    <option value="E:">💾 E: Drive</option>
+                                    <option value="F:">💾 F: Drive</option>
+                                </select>
                             </div>
                         </div>
                         <button class="btn-refresh-files" id="btn-refresh-files" title="Refresh files list">

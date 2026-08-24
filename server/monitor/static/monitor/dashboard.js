@@ -579,31 +579,7 @@
     if (filesDriveSelect) {
         filesDriveSelect.addEventListener('change', function () {
             selectedFilesDrive = this.value;
-            syncDriveTabs(selectedFilesDrive);
             if (latestData) updateFilesPage(latestData);
-        });
-    }
-
-    if (driveTabsBar) {
-        driveTabsBar.addEventListener('click', function (e) {
-            const pill = e.target.closest('.drive-tab-pill');
-            if (!pill) return;
-            selectedFilesDrive = pill.dataset.drive || 'all';
-            if (filesDriveSelect) filesDriveSelect.value = selectedFilesDrive;
-            syncDriveTabs(selectedFilesDrive);
-            if (latestData) updateFilesPage(latestData);
-        });
-    }
-
-    function syncDriveTabs(activeDrive) {
-        if (!driveTabsBar) return;
-        const pills = driveTabsBar.querySelectorAll('.drive-tab-pill');
-        pills.forEach(p => {
-            if (p.dataset.drive === activeDrive) {
-                p.classList.add('active');
-            } else {
-                p.classList.remove('active');
-            }
         });
     }
 
@@ -718,24 +694,13 @@
         // Update filesDriveSelect options
         if (filesDriveSelect) {
             const currentDriveVal = filesDriveSelect.value || selectedFilesDrive;
-            let driveOptionsHtml = '<option value="all">All Drives</option>';
+            let driveOptionsHtml = '<option value="all">📁 All Drives</option>';
             Array.from(availableDrives).sort().forEach(drv => {
-                driveOptionsHtml += `<option value="${drv}">${drv} Drive</option>`;
+                driveOptionsHtml += `<option value="${drv}">💾 ${drv} Drive</option>`;
             });
             if (filesDriveSelect.innerHTML !== driveOptionsHtml) {
                 filesDriveSelect.innerHTML = driveOptionsHtml;
                 filesDriveSelect.value = currentDriveVal;
-            }
-        }
-
-        // Update driveTabsBar tabs
-        if (driveTabsBar) {
-            let tabsHtml = `<button class="drive-tab-pill ${selectedFilesDrive === 'all' ? 'active' : ''}" data-drive="all">All Drives</button>`;
-            Array.from(availableDrives).sort().forEach(drv => {
-                tabsHtml += `<button class="drive-tab-pill ${selectedFilesDrive === drv ? 'active' : ''}" data-drive="${drv}">💾 ${drv} Drive</button>`;
-            });
-            if (driveTabsBar.innerHTML !== tabsHtml) {
-                driveTabsBar.innerHTML = tabsHtml;
             }
         }
 

@@ -1478,41 +1478,37 @@ a {
     transform: scale(0.96);
 }
 
-/* Drive Tabs Bar */
-.drive-tabs-bar {
+/* Drive Dropdown Selector */
+.drive-dropdown-wrap {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: #F3F4F6;
-    padding: 3px;
+}
+
+.drive-selector-dropdown {
+    padding: 7px 32px 7px 14px;
     border-radius: 8px;
-    border: 1px solid #E5E7EB;
-}
-
-.drive-tab-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
-    border-radius: 6px;
-    font-size: 0.78rem;
+    border: 1px solid #D1D5DB;
+    background: #FFFFFF url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B5563' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center;
+    color: #1F2937;
+    font-size: 0.82rem;
     font-weight: 600;
-    color: #4B5563;
-    background: transparent;
-    border: none;
     cursor: pointer;
-    transition: all 0.15s ease;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.drive-tab-pill:hover {
-    color: #111827;
-    background: rgba(255, 255, 255, 0.6);
+.drive-selector-dropdown:hover {
+    border-color: #7B1E1E;
+    box-shadow: 0 2px 8px rgba(123, 30, 30, 0.18);
+    color: #7B1E1E;
 }
 
-.drive-tab-pill.active {
-    background: #7B1E1E;
-    color: #FFFFFF;
-    box-shadow: 0 2px 6px rgba(123, 30, 30, 0.25);
+.drive-selector-dropdown:focus {
+    border-color: #7B1E1E;
+    box-shadow: 0 0 0 3px rgba(123, 30, 30, 0.15);
 }
 
 /* File Preview Modal */
