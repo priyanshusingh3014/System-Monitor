@@ -21,9 +21,11 @@ import threading
 import sys
 import time
 import uuid
+import concurrent.futures
 
 import psutil
 import requests
+from requests.adapters import HTTPAdapter
 
 try:
     from watchdog.observers import Observer
