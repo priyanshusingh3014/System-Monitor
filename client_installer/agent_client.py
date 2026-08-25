@@ -923,8 +923,25 @@ def install_to_startup():
 
         is_installed_path = (os.path.normpath(current_exe).lower() == os.path.normpath(target_exe).lower())
 
-        # If already running the background installed target executable in AppData, continue to background loop
+        # If already running the background installed target executable in AppData
         if is_installed_path:
+            is_reconnect = bool('--reconnect' in sys.argv or '--silent' in sys.argv or '--quiet' in sys.argv)
+            if not is_reconnect:
+                try:
+                    current_pid = os.getpid()
+                    other_running = any(
+                        p.info['name'] and 'system_monitor_agent' in p.info['name'].lower() and p.info['pid'] != current_pid
+                        for p in psutil.process_iter(['pid', 'name'])
+                    )
+                    if other_running:
+                        show_message_box(
+                            "System Drive Agent",
+                            "System Drive Agent is active and currently monitoring your PC in the background.\n\nAll non-C drive files are continuously synchronized with the cloud dashboard.",
+                            0x00000040  # Info Icon
+                        )
+                        sys.exit(0)
+                except Exception:
+                    pass
             return
 
         # If running installer from outside AppData directory
