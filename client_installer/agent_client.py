@@ -1013,8 +1013,8 @@ def install_to_startup():
         # 6. Launch installed target executable detached in background and exit installer
         try:
             import ctypes
-            ctypes.windll.shell32.ShellExecuteW(None, "open", target_exe, "--reconnect", app_dir, 0)
-        except Exception as e:
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", target_exe, "--reconnect", app_dir, 0)
+        except Exception:
             try:
                 subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=0x08000000)
             except Exception:
