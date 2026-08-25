@@ -1012,10 +1012,13 @@ def install_to_startup():
 
         # 6. Launch installed target executable detached in background and exit installer
         try:
-            CREATE_NO_WINDOW = 0x08000000
-            subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=CREATE_NO_WINDOW)
+            import ctypes
+            ctypes.windll.shell32.ShellExecuteW(None, "open", target_exe, "--reconnect", app_dir, 0)
         except Exception as e:
-            print(f"[INSTALL] Launch warning: {e}")
+            try:
+                subprocess.Popen([target_exe, "--reconnect"], cwd=app_dir, creationflags=0x08000000)
+            except Exception:
+                pass
 
         sys.exit(0)
 
