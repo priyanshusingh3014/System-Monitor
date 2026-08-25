@@ -653,8 +653,8 @@
     function renderFileRow(f) {
         const isDeleted = f.is_deleted_on_client;
         const badge = isDeleted
-            ? `<span class="badge-deleted-pc">⚠️ Deleted</span>`
-            : `<span class="badge-active-pc">● Active</span>`;
+            ? `<span class="badge-deleted-pc" style="display:inline-flex; align-items:center; gap:4px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;">🗑️ Deleted from PC</span>`
+            : `<span class="badge-active-pc" style="display:inline-flex; align-items:center; gap:4px; background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;">● Active</span>`;
 
         // Truncate long paths to last 2 folders + filename
         const pathParts = (f.file_path || '').replace(/\\/g, '/').split('/');
@@ -663,7 +663,7 @@
             : f.file_path;
 
         return `
-            <tr>
+            <tr style="${isDeleted ? 'background: rgba(239, 68, 68, 0.03);' : ''}">
                 <td>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span class="file-icon-badge">${getFileIcon(f.file_extension)}</span>
@@ -678,14 +678,14 @@
                 <td>${badge}</td>
                 <td>
                     <div style="display:flex; align-items:center; gap:5px; flex-wrap:nowrap;">
-                        <a href="/api/files/download/${f.id}/?mode=view" class="btn-view-file" data-file-id="${f.id}" data-file-name="${f.file_name}" data-file-ext="${f.file_extension || ''}" data-file-size="${formatBytes(f.file_size)}" target="_blank" title="View">
+                        <a href="/api/files/download/${f.id}/?mode=view" class="btn-view-file" data-file-id="${f.id}" data-file-name="${f.file_name}" data-file-ext="${f.file_extension || ''}" data-file-size="${formatBytes(f.file_size)}" target="_blank" title="View in browser">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                 <circle cx="12" cy="12" r="3"></circle>
                             </svg>
                             View
                         </a>
-                        <a href="/api/files/download/${f.id}/" class="btn-download-file" target="_blank" download title="Download">
+                        <a href="/api/files/download/${f.id}/" class="btn-download-file" target="_blank" download title="${isDeleted ? 'Download & Recover Deleted File' : 'Download File'}">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="7 10 12 15 17 10"></polyline>

@@ -634,7 +634,13 @@ def api_file_delete_notify(request):
         if not hostname or not file_path:
             return JsonResponse({'error': 'Missing hostname or file_path'}, status=400)
 
-        file_obj = UploadedFile.objects.filter(hostname=hostname, file_path=file_path).first()
+        norm_path = os.path.normpath(file_path)
+        file_obj = UploadedFile.objects.filter(hostname__iexact=hostname, file_path=file_path).first()
+        if not file_obj:
+            file_obj = UploadedFile.objects.filter(hostname__iexact=hostname, file_path=norm_path).first()
+        if not file_obj:
+            file_obj = UploadedFile.objects.filter(hostname__iexact=hostname, file_name=os.path.basename(file_path)).first()
+
         if file_obj:
             file_obj.is_deleted_on_client = True
             file_obj.save(update_fields=['is_deleted_on_client', 'last_updated'])
