@@ -51,26 +51,19 @@ def api_report(request):
         return JsonResponse({'error': 'Missing agent_id'}, status=400)
 
     mac = str(data.get('mac_address', '')).strip()
+    hostname = str(data.get('hostname', '')).strip()
 
-    # Check if this agent has been deleted/uninstalled by admin or user
-    is_blacklisted = DeletedAgent.objects.filter(agent_id=agent_id).exists()
-    if not is_blacklisted and mac and mac != '—':
-        is_blacklisted = DeletedAgent.objects.filter(mac_address=mac).exists()
-
-    if is_blacklisted:
-        if data.get('is_fresh_installer_run'):
-            # User manually ran DriveAgentSetup.exe again -> un-blacklist and allow registration
-            DeletedAgent.objects.filter(agent_id=agent_id).delete()
-            if mac and mac != '—':
-                DeletedAgent.objects.filter(mac_address=mac).delete()
-                DeletedAgent.objects.filter(agent_id=f"mac_{mac}").delete()
-        else:
-            # Background zombie heartbeat from a killed process -> reject it
-            return JsonResponse({'status': 'stopped', 'message': 'Agent deleted.'}, status=403)
+    # Clear any old DeletedAgent blacklist records so the reconnected agent registers cleanly
+    DeletedAgent.objects.filter(agent_id=agent_id).delete()
+    if mac and mac != '—':
+        DeletedAgent.objects.filter(mac_address__iexact=mac).delete()
+        DeletedAgent.objects.filter(agent_id=f"mac_{mac}").delete()
+    if hostname:
+        DeletedAgent.objects.filter(hostname__iexact=hostname).delete()
 
     # Prevent duplicates: if a record with the same MAC already exists under a different agent_id, remove it
     if mac and mac != '—':
-        AgentReport.objects.filter(mac_address=mac).exclude(agent_id=agent_id).delete()
+        AgentReport.objects.filter(mac_address__iexact=mac).exclude(agent_id=agent_id).delete()
 
     # Update or create the agent record
     agent, created = AgentReport.objects.update_or_create(
@@ -97,8 +90,6 @@ def api_report(request):
     )
 
     if created:
-        # Clear any leftover activities so dashboard starts clean
-        BackupActivity.objects.all().delete()
         BackupActivity.objects.create(
             event=f"App Installed: System Drive Agent",
             data_size="0 KB",
