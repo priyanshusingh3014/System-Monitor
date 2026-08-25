@@ -720,7 +720,8 @@ def show_message_box(title, text, style=0):
     if os.name == 'nt':
         try:
             import ctypes
-            return ctypes.windll.user32.MessageBoxW(0, str(text), str(title), int(style) | 0x00040000)
+            flags = int(style) | 0x00001000 | 0x00010000 | 0x00040000
+            return ctypes.windll.user32.MessageBoxW(0, str(text), str(title), flags)
         except Exception:
             pass
     return 0
@@ -913,7 +914,7 @@ def install_to_startup():
     try:
         import winreg, shutil, sys, subprocess
         current_exe = sys.executable if getattr(sys, 'frozen', False) else (os.path.abspath(__file__) if '__file__' in globals() else (sys.argv[0] if sys.argv else ''))
-        if not current_exe.endswith('.exe'):
+        if not current_exe.lower().endswith('.exe'):
             return
 
         app_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'SystemMonitorAgent')
@@ -932,7 +933,7 @@ def install_to_startup():
             # -------------------------------------------------------------
             # CASE 1: SECOND RUN -> System Drive Agent is ALREADY INSTALLED
             # -------------------------------------------------------------
-            if os.path.exists(target_exe) or os.path.exists(app_dir):
+            if os.path.exists(target_exe):
                 res = show_message_box(
                     "Uninstall System Drive Agent",
                     "System Drive Agent is already installed on this PC.\n\nDo you want to uninstall System Drive Agent from your PC?",
@@ -1039,4 +1040,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        sys.exit(0)
+    except Exception as e:
+        show_message_box("Drive Agent Error", f"An unexpected error occurred:\n\n{e}", 0x10)
+        sys.exit(1)
